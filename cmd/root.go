@@ -6,17 +6,17 @@ import (
 	"github.com/can3p/blg/generated/buildinfo"
 	cmd "github.com/can3p/kleiner/shared/cmd/cobra"
 	"github.com/can3p/kleiner/shared/published"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
+
+var ErrNotImplemented = errors.Errorf("Command has not been implemented")
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "blg",
-	Short: "A small additional tool to superpower your cobra cli",
-	Long:  `A small additional tool to superpower your cobra cli`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Short: "Blogging client",
+	Long:  `Command line blogging client`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -33,13 +33,4 @@ func init() {
 
 	cmd.Setup(info, rootCmd)
 	published.MaybeNotifyAboutNewVersion(info)
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.blg.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
