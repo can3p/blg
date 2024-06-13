@@ -30,6 +30,13 @@ func Execute() {
 
 func init() {
 	info := buildinfo.Info()
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		panic(err)
+	}
+
+	rootCmd.PersistentFlags().String("root", cwd, "Specify the folder to work against, defaults to current folder")
 
 	cmd.Setup(info, rootCmd)
 	published.MaybeNotifyAboutNewVersion(info)
