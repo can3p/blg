@@ -1,14 +1,14 @@
 package types
 
-type PostState int
+type PostHeaders map[string]any
 
-const (
-	PostDraft PostState = iota
-	PostPublished
-)
+type PostBody interface {
+	// local -> remote
+	ReplaceImages(map[string]string) error
+	MaybeString() (string, error)
+}
 
 type Post struct {
-	Title    string
-	Markdown string
-	State    PostState
+	Headers PostHeaders
+	Body    PostBody
 }

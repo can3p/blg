@@ -13,9 +13,9 @@ import (
 )
 
 type FolderState struct {
-	New      []*types.PostMeta
-	Modified []*types.PostMeta
-	Deleted  []*types.PostMeta
+	New      map[string]*types.PostMeta
+	Modified map[string]*types.PostMeta
+	Deleted  map[string]*types.PostMeta
 }
 
 func ExamineFolder(cfg *types.Config, rootFolder string) (*FolderState, error) {
@@ -29,24 +29,24 @@ func ExamineFolder(cfg *types.Config, rootFolder string) (*FolderState, error) {
 		return nil, err
 	}
 
-	newFiles := []*types.PostMeta{}
-	modifiedFiles := []*types.PostMeta{}
-	deletedFiles := []*types.PostMeta{}
+	newFiles := map[string]*types.PostMeta{}
+	modifiedFiles := map[string]*types.PostMeta{}
+	deletedFiles := map[string]*types.PostMeta{}
 
 	for _, md := range mdFiles {
 		found, ok := existing[md]
 
-		hash, err := CalcHash(md)
+		hash, err := CalcHash(filepath.Join(rootFolder, md))
 
 		if err != nil {
 			return nil, err
 		}
 
 		if !ok {
-			newFiles = append(newFiles, &types.PostMeta{
+			newFiles[md] = &types.PostMeta{
 				FileName: md,
 				Hash:     hash,
-			})
+			}
 
 			continue
 		}
@@ -57,11 +57,11 @@ func ExamineFolder(cfg *types.Config, rootFolder string) (*FolderState, error) {
 			continue
 		}
 
-		modifiedFiles = append(modifiedFiles, found)
+		modifiedFiles[found.FileName] = found
 	}
 
 	for _, existing := range existing {
-		deletedFiles = append(deletedFiles, existing)
+		deletedFiles[existing.FileName] = existing
 	}
 
 	return &FolderState{
@@ -92,7 +92,13 @@ func CollecMdPaths(rootFolder string) ([]string, error) {
 		}
 
 		if strings.HasSuffix(path, ".md") {
-			out = append(out, path)
+			relPath, err := filepath.Rel(rootFolder, path)
+
+			if err != nil {
+				return err
+			}
+
+			out = append(out, relPath)
 		}
 
 		return nil

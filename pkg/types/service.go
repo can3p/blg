@@ -8,17 +8,21 @@ type ServiceDefinition struct {
 	ServiceFunc ServiceFunc
 }
 
-func (sd ServiceDefinition) GetService(c *Config) Service {
+func (sd ServiceDefinition) GetService(c *Config) (Service, error) {
 	c.Host = cmp.Or(c.Stored.CustomHost, sd.DefaultHost)
 
 	return sd.ServiceFunc(*c)
 }
 
 type Service interface {
-	Push() error
+	PreparePost(headers map[string]string, body string) (*Post, []string, error)
+	UploadImage(string) (string, error)
+	Create(p *Post) (string, error)
+	Update(remoteID string, p *Post) error
+	Delete(remoteID string) error
 }
 
-type ServiceFunc func(c Config) Service
+type ServiceFunc func(c Config) (Service, error)
 
 func NewServiceDefinition(name, defaultHost string, sf ServiceFunc) ServiceDefinition {
 	return ServiceDefinition{

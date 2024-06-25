@@ -9,7 +9,6 @@ type PostMeta struct {
 type ImageMeta struct {
 	FileName string `json:"file_name"`
 	RemoteID string `json:"remote_id"`
-	Hash     string `json:"hash"`
 }
 
 type StoredConfig struct {
