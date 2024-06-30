@@ -51,7 +51,7 @@ func OperationInit(name, customHost, rootFolder string) error {
 }
 
 func getLogin() string {
-	fmt.Print("Enter Your First Name: ")
+	fmt.Print("Enter Your Login Name: ")
 
 	var login string
 
