@@ -21,7 +21,7 @@ func GetPassword(login, url string) (string, error) {
 		}
 	}
 
-	return password, err
+	return strings.TrimSpace(password), err
 }
 
 func GetAndSetPassword(login, url string) (string, error) {
@@ -45,7 +45,7 @@ func GetAndSetPassword(login, url string) (string, error) {
 }
 
 func readPassword() (string, error) {
-	fmt.Printf("Your password: ")
+	fmt.Printf("Your password/auth key: ")
 
 	pwd, err := term.ReadPassword(syscall.Stdin)
 
