@@ -20,6 +20,7 @@ type Service interface {
 	Create(p *Post) (string, error)
 	Update(remoteID string, p *Post) error
 	Delete(remoteID string) error
+	PostURL(remoteID string) string
 }
 
 type ServiceFunc func(c Config) (Service, error)

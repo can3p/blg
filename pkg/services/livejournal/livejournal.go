@@ -38,6 +38,10 @@ func (c *client) Delete(remoteID string) error {
 	return types.ErrNotImplemented
 }
 
+func (c *client) PostURL(remoteID string) string {
+	return c.cfg.Host + "/" + remoteID
+}
+
 func init() {
 	types.DefaultServiceRepo.Register(
 		types.NewServiceDefinition(

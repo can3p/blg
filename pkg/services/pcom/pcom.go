@@ -48,6 +48,10 @@ func toApiPost(p *types.Post) (*ApiPost, error) {
 	}, nil
 }
 
+func (c *client) PostURL(remoteID string) string {
+	return c.cfg.Host + "/posts/" + remoteID
+}
+
 var VisibilityValues = []string{"direct_only", "second_degree"}
 var PublishedValues = []string{"yes", "no"}
 
