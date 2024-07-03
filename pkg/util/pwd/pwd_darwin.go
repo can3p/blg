@@ -1,6 +1,7 @@
 package pwd
 
 import (
+	"github.com/can3p/blg/pkg/util/exec"
 	"github.com/pkg/errors"
 )
 
@@ -23,7 +24,7 @@ func setPassword(login, url string) error {
 		return errors.Errorf("Password cannot be empty")
 	}
 
-	_, err = runCmd(setCmd(login, url, password)...)
+	_, err = exec.RunCmd(setCmd(login, url, password)...)
 
 	return err
 }

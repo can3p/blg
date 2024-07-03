@@ -1,5 +1,7 @@
 package pwd
 
+import "github.com/can3p/blg/pkg/util/exec"
+
 func getCmd(login, url string) []string {
 	return []string{"secret-tool", "lookup", url + ":login", login}
 }
@@ -9,5 +11,7 @@ func setCmd(login, url string) []string {
 }
 
 func setPassword(login, url string) error {
-	return runCmd(setCmd(login, url))
+	_, err := exec.RunCmd(setCmd(login, url)...)
+
+	return err
 }

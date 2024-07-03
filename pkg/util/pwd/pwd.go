@@ -3,16 +3,16 @@ package pwd
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"strings"
 	"syscall"
 
+	"github.com/can3p/blg/pkg/util/exec"
 	"github.com/pkg/errors"
 	"golang.org/x/term"
 )
 
 func GetPassword(login, url string) (string, error) {
-	password, err := runCmd(getCmd(login, url)...)
+	password, err := exec.RunCmd(getCmd(login, url)...)
 
 	if err != nil {
 		// max os x: exit status 44 only means that there is no password in the key chain
@@ -54,16 +54,4 @@ func readPassword() (string, error) {
 	}
 
 	return string(bytes.TrimSpace(pwd)), nil
-}
-
-func runCmd(args ...string) (string, error) {
-	cmd := exec.Command(args[0], args[1:]...)
-	var out strings.Builder
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-
-	return out.String(), nil
 }

@@ -48,12 +48,20 @@ func toApiPost(p *types.Post) (*ApiPost, error) {
 	}, nil
 }
 
+var VisibilityValues = []string{"direct_only", "second_degree"}
+var PublishedValues = []string{"yes", "no"}
+
+func (c *client) NewPostTemplate(name string) string {
+	return fmt.Sprintf(`subject: New post %s
+visibility: %s
+published: %s
+
+Write yout new post there!`, name, strings.Join(VisibilityValues, " or "), strings.Join(PublishedValues, " or "))
+}
+
 func (c *client) PostURL(remoteID string) string {
 	return c.cfg.Host + "/posts/" + remoteID
 }
-
-var VisibilityValues = []string{"direct_only", "second_degree"}
-var PublishedValues = []string{"yes", "no"}
 
 func (c *client) PreparePost(fields map[string]string, body string) (*types.Post, []string, error) {
 	p := &types.Post{
