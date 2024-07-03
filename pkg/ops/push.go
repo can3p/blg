@@ -165,7 +165,7 @@ func performPush(root string, meta *types.PostMeta, op PushOp) error {
 		}
 
 		newMeta := &types.PostMeta{
-			FileName: fileName,
+			FileName: relFileName,
 			RemoteID: remoteID,
 			Hash:     hash,
 		}
