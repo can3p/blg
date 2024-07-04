@@ -2,6 +2,7 @@ package pcom
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,14 @@ type ApiPost struct {
 	IsPublished bool   `json:"is_published"`
 }
 
+type RemoteApiPost struct {
+	ApiPost
+	ID          string `json:"id"`
+	PublishedAt int64  `json:"published_at,omitempty"`
+	UpdatedAt   int64  `json:"updated_at,omitempty"`
+	PublicURL   string `json:"public_url"`
+}
+
 func toApiPost(p *types.Post) (*ApiPost, error) {
 	body, err := p.Body.MaybeString()
 
@@ -61,6 +70,141 @@ Write yout new post there!`, name, strings.Join(VisibilityValues, " or "), strin
 
 func (c *client) PostURL(remoteID string) string {
 	return c.cfg.Host + "/posts/" + remoteID
+}
+
+func (c *client) FetchPosts(updatedSince int64) ([]*types.RemotePost, []string, error) {
+	out := []*types.RemotePost{}
+	imageIDs := []string{}
+
+	var posts []*types.RemotePost
+	var extracted []string
+	var cursor string
+	var err error
+
+	for {
+		posts, extracted, cursor, err = c.fetchPostsPage(updatedSince, cursor)
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		out = append(out, posts...)
+		imageIDs = append(imageIDs, extracted...)
+
+		if cursor == "" {
+			break
+		}
+	}
+
+	return out, imageIDs, nil
+}
+
+func (c *client) fetchPostsPage(updatedSince int64, cursor string) ([]*types.RemotePost, []string, string, error) {
+	url := c.cfg.Host + endpoint + "/posts?limit=10"
+
+	if updatedSince > 0 {
+		url += "&updated_since=" + fmt.Sprintf("%d", updatedSince)
+	}
+
+	if cursor != "" {
+		url += "&cursor=" + cursor
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.auth))
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, nil, "", errors.Errorf("Failed to download posts, return code should be 200, got %d instead", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+
+	respBody, err := io.ReadAll(res.Body)
+
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	var respParsed struct {
+		Data struct {
+			Posts  []*RemoteApiPost `json:"posts"`
+			Cursor string           `json:"cursor"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &respParsed); err != nil {
+		return nil, nil, "", err
+	}
+
+	out := []*types.RemotePost{}
+	outImages := []string{}
+
+	for _, p := range respParsed.Data.Posts {
+		b, err := json.Marshal(p.ApiPost)
+
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		parsedBody, err := parseBody(p.MdBody)
+
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		extracted, err := parsedBody.ExtractImages()
+
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		outImages = append(outImages, extracted...)
+
+		out = append(out, &types.RemotePost{
+			ID:   p.ID,
+			Hash: fmt.Sprintf("%x", sha256.Sum256(b)),
+			Data: p,
+		})
+	}
+
+	return out, outImages, respParsed.Data.Cursor, nil
+}
+
+func (c *client) DownloadImage(fname string) ([]byte, error) {
+	url := c.cfg.Host + "/user-media/" + fname
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("Failed to download an image, return code should be 200, got %d instead", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+
+	respBody, err := io.ReadAll(res.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return respBody, nil
 }
 
 func (c *client) PreparePost(fields map[string]string, body string) (*types.Post, []string, error) {

@@ -1,6 +1,8 @@
 package types
 
-import "cmp"
+import (
+	"cmp"
+)
 
 type ServiceDefinition struct {
 	Name        string
@@ -22,6 +24,8 @@ type Service interface {
 	Delete(remoteID string) error
 	PostURL(remoteID string) string
 	NewPostTemplate(name string) string
+	FetchPosts(updatedSince int64) ([]*RemotePost, []string, error)
+	DownloadImage(string) ([]byte, error)
 }
 
 type ServiceFunc func(c Config) (Service, error)
