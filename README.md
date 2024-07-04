@@ -1,7 +1,33 @@
 # blg - Command line blog client
 
 blg is based on [cl-journal](https://github.com/can3p/cl-journal), but is written in
-go in order to make contributing and distribution easier
+go in order to make contributing and distribution easier.
+
+Supported services:
+
+* [pcom](https://github.com/can3p/pcom)
+* That's it!
+
+Supported features:
+
+- File based blog management
+- blg supports both pushing to remote services and pulling from them
+- Image upload is supported in case service implementation supports it
+- Remote changes are merged into existing posts, including remote images
+- During post download all the image paths are changed to the local one
+  to allow to comfortably edit files locally
+
+## Philosophy
+
+`blg` tries to leave as much as possible to the discretion of a particular service
+implementation. For example, No assumption is made about the post headers or
+the format used by post body. The client only deals with all the surrounding
+machinery like cli handling, storing files etc.
+
+If you're curious or want to implement the support for your service, please
+have a look on [interface definition](https://github.com/can3p/blg/blob/master/pkg/types/service.go)
+and [pcom implementation](https://github.com/can3p/blg/blob/master/pkg/services/pcom/pcom.go)
+to get the idea.
 
 ## Installation
 
