@@ -110,3 +110,41 @@ func CollecMdPaths(rootFolder string) ([]string, error) {
 
 	return out, nil
 }
+
+type RemotePostWithLocal struct {
+	types.RemotePost
+	Fname string
+}
+
+type RemoteState struct {
+	New      []*types.RemotePost
+	Modified []*RemotePostWithLocal
+}
+
+func ExamineRemote(cfg *types.Config, remote *types.RemotePosts) (*RemoteState, error) {
+	existing := lo.KeyBy(cfg.Stored.RemotePosts, func(p *types.PostMeta) string {
+		return p.RemoteID
+	})
+
+	newFiles := []*types.RemotePost{}
+	modifiedFiles := []*RemotePostWithLocal{}
+
+	for _, p := range remote.Posts {
+		local, ok := existing[p.ID]
+
+		switch {
+		case !ok:
+			newFiles = append(newFiles, p)
+		case p.UpdatedAt > local.PushedAt:
+			modifiedFiles = append(modifiedFiles, &RemotePostWithLocal{
+				RemotePost: *p,
+				Fname:      local.FileName,
+			})
+		}
+	}
+
+	return &RemoteState{
+		New:      newFiles,
+		Modified: modifiedFiles,
+	}, nil
+}

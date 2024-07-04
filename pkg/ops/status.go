@@ -49,5 +49,39 @@ func OperationStatus(rootFolder string) error {
 		//fmt.Println()
 	}
 
+	remote, err := store.LoadRemotePosts(rootFolder)
+
+	if err != nil {
+		return err
+	}
+
+	if len(remote.Posts) > 0 {
+		state, err := store.ExamineRemote(cfg, remote)
+
+		if err != nil {
+			return err
+		}
+
+		if len(state.New) == 0 {
+			fmt.Println("No new remote files")
+		} else {
+			fmt.Printf("Found %d new files on remote:\n\n", len(state.New))
+			for _, ff := range state.New {
+				fmt.Printf("  - %s\n", ff.ID)
+			}
+			//fmt.Println()
+		}
+
+		if len(state.Modified) == 0 {
+			fmt.Println("No modified remote files")
+		} else {
+			fmt.Printf("Found %d modified files on remote:\n\n", len(state.Modified))
+			for _, ff := range state.Modified {
+				fmt.Printf("  - %s\n", ff.Fname)
+			}
+			//fmt.Println()
+		}
+	}
+
 	return nil
 }
