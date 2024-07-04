@@ -26,6 +26,7 @@ type Service interface {
 	NewPostTemplate(name string) string
 	FetchPosts(updatedSince int64) ([]*RemotePost, []string, error)
 	DownloadImage(string) ([]byte, error)
+	FormatRemotePost(*RemotePost) (string, []byte, error)
 }
 
 type ServiceFunc func(c Config) (Service, error)

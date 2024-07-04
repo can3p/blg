@@ -208,6 +208,66 @@ func (c *client) DownloadImage(fname string) ([]byte, error) {
 	return respBody, nil
 }
 
+func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, error) {
+	var p RemoteApiPost
+
+	// this is lame, but I do not want to waste time
+	// trying to find a pretty way to case any to RemotePost
+	b, err := json.Marshal(remote.Data)
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	if err := json.Unmarshal(b, &p); err != nil {
+		return "", nil, err
+	}
+
+	parsedBody, err := parseBody(p.MdBody)
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	replaceMap := map[string]string{}
+
+	for _, im := range c.cfg.Stored.RemoteImages {
+		replaceMap[im.RemoteID] = im.FileName
+	}
+
+	if err := parsedBody.ReplaceImages(replaceMap); err != nil {
+		return "", nil, err
+	}
+
+	mdBody, err := parsedBody.MaybeString()
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	published := "no"
+
+	if p.IsPublished {
+		published = "yes"
+	}
+
+	subject := p.Subject
+
+	if subject == "" {
+		subject = "no subject"
+	}
+
+	serialized := fmt.Sprintf(`subject: %s
+visibility: %s
+published: %s
+
+%s`, p.Subject, p.Visibility, published, mdBody)
+
+	fname := fmt.Sprintf("%s-%s.md", time.Unix(p.UpdatedAt, 0).Format("2006-01-02"), strings.ReplaceAll(strings.ToLower(subject), " ", "-"))
+
+	return fname, []byte(serialized), nil
+}
+
 func (c *client) PreparePost(fields map[string]string, body string) (*types.Post, []string, error) {
 	p := &types.Post{
 		Headers: types.PostHeaders{},

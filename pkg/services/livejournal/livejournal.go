@@ -30,6 +30,10 @@ func (c *client) FetchPosts(updatedSince int64) ([]*types.RemotePost, []string, 
 	return nil, nil, types.ErrNotImplemented
 }
 
+func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, error) {
+	return "", nil, types.ErrNotImplemented
+}
+
 // ```
 // curl -v -H'Authorization: Bearer <api-key>' -XPOST -d'{ "subject": "test post", "md_body": "is saved\n\n![trololo](0190478c-5592-74ab-9d1a-5cdab598f2dd.png)", "visibility": "direct_only" }' http://localhost:8080/api/v1/posts
 // {"data":{"id":"01904796-62f7-7a9a-a7bd-1595ed6d1663","public_url":"http://localhost:8080/posts/01904796-62f7-7a9a-a7bd-1595ed6d1663"}}%
