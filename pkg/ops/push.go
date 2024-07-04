@@ -3,6 +3,7 @@ package ops
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/can3p/blg/pkg/fileformat"
 	"github.com/can3p/blg/pkg/store"
@@ -168,6 +169,7 @@ func performPush(root string, meta *types.PostMeta, op PushOp) error {
 			FileName: relFileName,
 			RemoteID: remoteID,
 			Hash:     hash,
+			PushedAt: time.Now().Unix(),
 		}
 
 		config.Stored.RemotePosts = append(config.Stored.RemotePosts, newMeta)
@@ -199,6 +201,7 @@ func performPush(root string, meta *types.PostMeta, op PushOp) error {
 		}
 
 		meta.Hash = hash
+		meta.PushedAt = time.Now().Unix()
 	case PushOpDelete:
 		err = service.Delete(meta.RemoteID)
 

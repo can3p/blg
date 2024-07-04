@@ -4,6 +4,7 @@ type PostMeta struct {
 	FileName string `json:"file_name"`
 	RemoteID string `json:"remote_id"`
 	Hash     string `json:"hash"`
+	PushedAt int64  `json:"pushed_at"`
 }
 
 type ImageMeta struct {
