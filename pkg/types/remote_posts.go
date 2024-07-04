@@ -1,9 +1,10 @@
 package types
 
 type RemotePost struct {
-	ID   string `json:"id"`
-	Hash string `json:"hash"`
-	Data any    `json:"data"`
+	ID        string `json:"id"`
+	Hash      string `json:"hash"`
+	Data      any    `json:"data"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type RemotePosts struct {

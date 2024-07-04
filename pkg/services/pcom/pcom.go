@@ -170,9 +170,10 @@ func (c *client) fetchPostsPage(updatedSince int64, cursor string) ([]*types.Rem
 		outImages = append(outImages, extracted...)
 
 		out = append(out, &types.RemotePost{
-			ID:   p.ID,
-			Hash: fmt.Sprintf("%x", sha256.Sum256(b)),
-			Data: p,
+			ID:        p.ID,
+			Hash:      fmt.Sprintf("%x", sha256.Sum256(b)),
+			Data:      p,
+			UpdatedAt: p.UpdatedAt,
 		})
 	}
 
