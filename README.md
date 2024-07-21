@@ -17,6 +17,10 @@ Supported features:
 - During post download all the image paths are changed to the local one
   to allow to comfortably edit files locally
 
+Here is a demo!
+
+[![Blg demo](https://img.youtube.com/vi/AtVvmA2razA/0.jpg)](https://www.youtube.com/watch?v=AtVvmA2razA)
+
 ## Philosophy
 
 `blg` tries to leave as much as possible to the discretion of a particular service
