@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/alecthomas/assert/v2 v2.10.0
 	github.com/can3p/kleiner v0.0.12
+	github.com/gosimple/slug v1.14.0
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.39.0
 	github.com/spf13/cobra v1.8.0
@@ -20,7 +21,6 @@ require (
 	github.com/go-resty/resty/v2 v2.11.0 // indirect
 	github.com/google/go-github/v57 v57.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/gosimple/slug v1.14.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
