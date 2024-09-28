@@ -15,6 +15,7 @@ import (
 
 	"github.com/can3p/blg/pkg/types"
 	"github.com/can3p/blg/pkg/util/pwd"
+	"github.com/gosimple/slug"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 )
@@ -263,7 +264,8 @@ published: %s
 
 %s`, p.Subject, p.Visibility, published, mdBody)
 
-	fname := fmt.Sprintf("%s-%s.md", time.Unix(p.UpdatedAt, 0).Format("2006-01-02"), strings.ReplaceAll(strings.ToLower(subject), " ", "-"))
+	slugTitle := slug.Make(subject)
+	fname := fmt.Sprintf("%s-%s.md", time.Unix(p.UpdatedAt, 0).Format("2006-01-02"), slugTitle)
 
 	return fname, []byte(serialized), nil
 }
