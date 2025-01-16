@@ -182,7 +182,7 @@ func (c *client) fetchPostsPage(updatedSince int64, cursor string) ([]*types.Rem
 }
 
 func (c *client) DownloadImage(fname string) ([]byte, error) {
-	url := c.cfg.Host + "/user-media/" + fname
+	url := c.cfg.Host + "/user-media/" + fname + "/full"
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
