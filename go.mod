@@ -1,6 +1,6 @@
 module github.com/can3p/blg
 
-go 1.22.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/assert/v2 v2.10.0
