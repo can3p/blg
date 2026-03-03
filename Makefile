@@ -1,8 +1,8 @@
 .PHONY: test lint build check fix
 
-# Run all tests with race detection and coverage
+# Run all tests with race detection, coverage, and timeout
 test:
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -v -race -timeout 60s -coverprofile=coverage.out ./...
 
 # Run linter
 lint:

@@ -3,6 +3,7 @@ package livejournal
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -10,12 +11,16 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type XMLRPCClient struct {
-	endpoint   string
-	httpClient *http.Client
+	endpoint    string
+	httpClient  *http.Client
+	lastRequest time.Time
+	mu          sync.Mutex
+	rateLimit   time.Duration
 }
 
 func newXMLRPCClient(host string) *XMLRPCClient {
@@ -24,6 +29,7 @@ func newXMLRPCClient(host string) *XMLRPCClient {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		rateLimit: time.Second, // 1 RPS limit for LiveJournal API
 	}
 }
 
@@ -34,6 +40,7 @@ func NewXMLRPCClientWithEndpoint(endpointURL string) *XMLRPCClient {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		rateLimit: time.Second, // 1 RPS limit for LiveJournal API
 	}
 }
 
@@ -88,25 +95,51 @@ func (c *XMLRPCClient) Call(method string, params map[string]any) (map[string]an
 		return nil, fmt.Errorf("encoding request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.endpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+	var lastErr error
+	maxRetries := 3
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Rate limiting: ensure minimum time between requests
+		c.mu.Lock()
+		if c.rateLimit > 0 && !c.lastRequest.IsZero() {
+			elapsed := time.Since(c.lastRequest)
+			if elapsed < c.rateLimit {
+				time.Sleep(c.rateLimit - elapsed)
+			}
+		}
+		c.lastRequest = time.Now()
+		c.mu.Unlock()
+
+		req, err := http.NewRequest(http.MethodPost, c.endpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "text/xml")
+		req.Header.Set("User-Agent", "blg/1.0 (https://github.com/can3p/blg)")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			// Exponential backoff: 2s, 4s, 8s
+			backoff := time.Duration(2<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			backoff := time.Duration(2<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
+
+		return decodeResponse(respBody)
 	}
 
-	req.Header.Set("Content-Type", "text/xml")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-
-	return decodeResponse(respBody)
+	return nil, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr)
 }
 
 func encodeRequest(method string, params map[string]any) ([]byte, error) {
@@ -206,7 +239,12 @@ func decodeValue(v xmlrpcValue) any {
 	case v.Boolean != nil:
 		return *v.Boolean != 0
 	case v.Base64 != nil:
-		return *v.Base64
+		// Decode base64 content (LJ returns Unicode strings as base64)
+		decoded, err := base64.StdEncoding.DecodeString(*v.Base64)
+		if err != nil {
+			return *v.Base64 // Return raw if decode fails
+		}
+		return string(decoded)
 	case v.Struct != nil:
 		m := make(map[string]any)
 		for _, member := range v.Struct.Members {

@@ -18,7 +18,8 @@ import (
 
 const endpoint = "/interface/xmlrpc"
 
-var PrivacyValues = []string{"public", "private", "friends"}
+var VisibilityValues = []string{"public", "private", "friends"}
+var PublishedValues = []string{"yes", "no"}
 
 type client struct {
 	cfg      types.Config
@@ -39,12 +40,12 @@ func (c *client) PreparePost(fields map[string]string, body string) (*types.Post
 		p.Headers["title"] = ""
 	}
 
-	// privacy defaults to public
-	privacy := "public"
-	if v, ok := fields["privacy"]; ok {
-		privacy = v
+	// visibility defaults to public
+	visibility := "public"
+	if v, ok := fields["visibility"]; ok {
+		visibility = v
 	}
-	switch privacy {
+	switch visibility {
 	case "public":
 		p.Headers["security"] = "public"
 	case "private":
@@ -53,7 +54,7 @@ func (c *client) PreparePost(fields map[string]string, body string) (*types.Post
 		p.Headers["security"] = "usemask"
 		p.Headers["allowmask"] = 1
 	default:
-		return nil, nil, errors.Errorf("invalid privacy value: %s, must be one of: %s", privacy, strings.Join(PrivacyValues, ", "))
+		return nil, nil, errors.Errorf("invalid visibility value: %s, must be one of: %s", visibility, strings.Join(VisibilityValues, ", "))
 	}
 
 	// optional fields
@@ -85,9 +86,11 @@ func (c *client) PreparePost(fields map[string]string, body string) (*types.Post
 		p.Headers["usejournal"] = journal
 	}
 
-	// check for draft
-	if _, ok := fields["draft"]; ok {
-		return nil, nil, errors.Errorf("post is marked as draft, skipping")
+	// check published flag
+	if published, ok := fields["published"]; ok {
+		if published != "yes" {
+			return nil, nil, errors.Errorf("post is not published, skipping")
+		}
 	}
 
 	// parse body for images and links
@@ -286,17 +289,20 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 		fmt.Fprintf(&sb, "title: %s\n", subject)
 	}
 
-	// Map security to privacy
-	privacy := "public"
+	// Map security to visibility
+	visibility := "public"
 	switch security {
 	case "private":
-		privacy = "private"
+		visibility = "private"
 	case "usemask":
-		privacy = "friends"
+		visibility = "friends"
 	}
-	if privacy != "public" {
-		fmt.Fprintf(&sb, "privacy: %s\n", privacy)
+	if visibility != "public" {
+		fmt.Fprintf(&sb, "visibility: %s\n", visibility)
 	}
+
+	// Always add published flag
+	fmt.Fprintf(&sb, "published: yes\n")
 
 	// Extract props
 	if props, ok := m["props"].(map[string]any); ok {
@@ -506,11 +512,12 @@ func (c *client) Delete(remoteID string) error {
 
 func (c *client) NewPostTemplate(name string) string {
 	return fmt.Sprintf(`title: %s
-privacy: public
+visibility: %s
+published: %s
 tags: 
 
 Write your post here in markdown!
-`, name)
+`, name, strings.Join(VisibilityValues, " or "), strings.Join(PublishedValues, " or "))
 }
 
 func (c *client) PostURL(remoteID string) string {

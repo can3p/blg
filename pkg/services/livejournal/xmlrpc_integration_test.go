@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,6 +41,7 @@ func TestXMLRPCClient_Call_GetChallenge(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "text/xml", r.Header.Get("Content-Type"))
+		assert.Contains(t, r.Header.Get("User-Agent"), "blg/", "User-Agent header must be set")
 
 		body, _ := io.ReadAll(r.Body)
 		assert.Contains(t, string(body), "LJ.XMLRPC.getchallenge")
@@ -305,6 +307,79 @@ func TestDecodeResponse_RealXML(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Invalid password")
 	})
+
+	t.Run("base64_unicode", func(t *testing.T) {
+		// LJ returns Unicode content as base64 when ver=1 is set
+		// "Testing Unicode: Привет мир" encoded as base64
+		base64Response := `<?xml version="1.0" encoding="UTF-8"?>
+<methodResponse><params><param><value><struct>
+<member><name>event</name><value><base64>VGVzdGluZyBVbmljb2RlOiDQn9GA0LjQstC10YIg0LzQuNGA</base64></value></member>
+<member><name>subject</name><value><string>Test</string></value></member>
+</struct></value></param></params></methodResponse>`
+
+		result, err := decodeResponse([]byte(base64Response))
+		require.NoError(t, err)
+		assert.Equal(t, "Testing Unicode: Привет мир", result["event"])
+		assert.Equal(t, "Test", result["subject"])
+	})
+}
+
+func TestDecodeValue_Base64Unicode(t *testing.T) {
+	// Test that base64-encoded Unicode strings are properly decoded
+	testCases := []struct {
+		name     string
+		base64   string
+		expected string
+	}{
+		{
+			name:     "cyrillic",
+			base64:   "VGVzdGluZyBVbmljb2RlOiDQn9GA0LjQstC10YIg0LzQuNGA",
+			expected: "Testing Unicode: Привет мир",
+		},
+		{
+			name:     "chinese",
+			base64:   "5L2g5aW9",
+			expected: "你好",
+		},
+		{
+			name:     "emoji",
+			base64:   "SGVsbG8g8J+YgA==",
+			expected: "Hello 😀",
+		},
+		{
+			name:     "plain_ascii",
+			base64:   "SGVsbG8gV29ybGQ=",
+			expected: "Hello World",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			v := xmlrpcValue{Base64: &tc.base64}
+			result := decodeValue(v)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestXMLRPCClient_UserAgent(t *testing.T) {
+	// Verify that User-Agent header is sent with all requests
+	// LJ rejects requests without User-Agent with "connection reset by peer"
+	var receivedUserAgent string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedUserAgent = r.Header.Get("User-Agent")
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(getChallengeResponse))
+	}))
+	defer server.Close()
+
+	client := NewXMLRPCClientWithEndpoint(server.URL)
+	_, err := client.Call("test", map[string]any{})
+
+	require.NoError(t, err)
+	assert.Contains(t, receivedUserAgent, "blg/")
+	assert.Contains(t, receivedUserAgent, "github.com/can3p/blg")
 }
 
 func TestEncodeRequest_XMLStructure(t *testing.T) {
@@ -362,10 +437,11 @@ func TestXMLRoundTrip(t *testing.T) {
 func TestXMLRPCClient_NetworkError(t *testing.T) {
 	// Test handling of network errors
 	client := newXMLRPCClient("http://localhost:1") // Invalid port
+	client.rateLimit = 0                            // Disable rate limiting for faster test
 
 	_, err := client.Call("test", map[string]any{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "executing request")
+	assert.Contains(t, err.Error(), "request failed after")
 }
 
 func TestXMLRPCClient_InvalidXMLResponse(t *testing.T) {
@@ -392,4 +468,57 @@ func TestXMLRPCClient_EmptyResponse(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty response")
+}
+
+func TestXMLRPCClient_RateLimiting(t *testing.T) {
+	// Test that rate limiting spaces out requests
+	// Using a short rate limit for faster tests
+	requestTimes := []time.Time{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestTimes = append(requestTimes, time.Now())
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(getChallengeResponse))
+	}))
+	defer server.Close()
+
+	client := NewXMLRPCClientWithEndpoint(server.URL)
+	client.rateLimit = 50 * time.Millisecond // Use short interval for testing
+
+	// Make 3 sequential calls
+	for i := 0; i < 3; i++ {
+		_, err := client.Call("test", map[string]any{})
+		require.NoError(t, err)
+	}
+
+	// Verify requests were spaced apart (after the first)
+	// Use 40ms threshold to account for timing jitter
+	require.Len(t, requestTimes, 3)
+	for i := 1; i < len(requestTimes); i++ {
+		diff := requestTimes[i].Sub(requestTimes[i-1])
+		assert.GreaterOrEqual(t, diff, 40*time.Millisecond, "requests should be rate limited")
+	}
+}
+
+func TestXMLRPCClient_RateLimitingDisabled(t *testing.T) {
+	// Test that rate limiting can be disabled for testing
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(getChallengeResponse))
+	}))
+	defer server.Close()
+
+	client := NewXMLRPCClientWithEndpoint(server.URL)
+	client.rateLimit = 0 // Disable rate limiting
+
+	// Make rapid calls - should complete quickly without rate limiting
+	start := time.Now()
+	for i := 0; i < 3; i++ {
+		_, err := client.Call("test", map[string]any{})
+		require.NoError(t, err)
+	}
+	elapsed := time.Since(start)
+
+	// Without rate limiting, 3 calls should complete in well under 1 second
+	assert.Less(t, elapsed, 500*time.Millisecond)
 }

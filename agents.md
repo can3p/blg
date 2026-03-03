@@ -93,7 +93,7 @@ Stored in `posts.json`:
 Posts are markdown files with YAML-like headers:
 
 ```markdown
-subject: Post Title
+title: Post Title
 visibility: direct_only
 published: yes
 
@@ -145,17 +145,21 @@ Uses XML-RPC at `/interface/xmlrpc`. Key methods:
 
 Authentication: Challenge-response with MD5(challenge + MD5(password))
 
-## LiveJournal Post Fields
+## Post Fields (Unified)
 
-From cl-journal reference:
-- `title` - Post subject
-- `privacy` - public/private/friends (maps to security + allowmask)
+Common fields across all services:
+- `title` - Post title/subject
+- `visibility` - Post visibility (service-specific values)
+  - pcom: `direct_only`, `second_degree`
+  - LiveJournal/Dreamwidth: `public`, `private`, `friends` (maps to security + allowmask)
+- `published` - Whether to publish (`yes`/`no`). If `no`, skip during push
+
+LiveJournal/Dreamwidth specific fields:
 - `tags` - Comma-separated tags (prop: taglist)
 - `music` - Current music (prop: current_music)
 - `mood` - Current mood (prop: current_mood)
 - `location` - Current location (prop: current_location)
 - `journal` - Post to community instead of user journal (usejournal)
-- `draft` - If present, skip this file
 
 ## Link Resolution
 
@@ -222,12 +226,14 @@ For migrating between LJ-like services:
 Use the Makefile for common development tasks:
 
 ```bash
-make test    # Run all tests with race detection and coverage
+make test    # Run all tests with race detection, coverage, and 60s timeout
 make lint    # Run golangci-lint
 make build   # Build all packages
 make check   # Run all checks (build, test, lint)
 make fix     # Run go fix and go mod tidy
 ```
+
+**Important**: Always run tests with a timeout (`-timeout 60s`) to prevent hanging tests, especially when using `synctest` package for time-dependent code.
 
 CI runs `make fix` first and fails if it produces uncommitted changes.
 

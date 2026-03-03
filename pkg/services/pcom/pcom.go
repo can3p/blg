@@ -29,7 +29,7 @@ type client struct {
 }
 
 type ApiPost struct {
-	Subject     string `json:"subject"`
+	Title       string `json:"title"`
 	MdBody      string `json:"md_body"`
 	Visibility  string `json:"visibility"`
 	IsPublished bool   `json:"is_published"`
@@ -51,7 +51,7 @@ func toApiPost(p *types.Post) (*ApiPost, error) {
 	}
 
 	return &ApiPost{
-		Subject:     p.Headers["subject"].(string),
+		Title:       p.Headers["title"].(string),
 		MdBody:      body,
 		Visibility:  p.Headers["visibility"].(string),
 		IsPublished: p.Headers["published"].(bool),
@@ -62,7 +62,7 @@ var VisibilityValues = []string{"direct_only", "second_degree"}
 var PublishedValues = []string{"yes", "no"}
 
 func (c *client) NewPostTemplate(name string) string {
-	return fmt.Sprintf(`subject: New post %s
+	return fmt.Sprintf(`title: New post %s
 visibility: %s
 published: %s
 
@@ -252,20 +252,19 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 		published = "yes"
 	}
 
-	subject := p.Subject
+	title := p.Title
 
-	if subject == "" {
-		subject = "no subject"
+	if title == "" {
+		title = "no title"
 	}
 
-	serialized := fmt.Sprintf(`subject: %s
+	serialized := fmt.Sprintf(`title: %s
 visibility: %s
 published: %s
 
-%s`, p.Subject, p.Visibility, published, mdBody)
+%s`, p.Title, p.Visibility, published, mdBody)
 
-	slugTitle := slug.Make(subject)
-	fname := fmt.Sprintf("%s-%s.md", time.Unix(p.UpdatedAt, 0).Format("2006-01-02"), slugTitle)
+	fname := fmt.Sprintf("%s-%s.md", time.Unix(p.UpdatedAt, 0).Format("2006-01-02"), slug.Make(title))
 
 	return fname, []byte(serialized), nil
 }
@@ -275,10 +274,10 @@ func (c *client) PreparePost(fields map[string]string, body string) (*types.Post
 		Headers: types.PostHeaders{},
 	}
 
-	if subject, ok := fields["subject"]; !ok {
-		return nil, nil, errors.Errorf("`subject` field should be present")
+	if title, ok := fields["title"]; !ok {
+		return nil, nil, errors.Errorf("`title` field should be present")
 	} else {
-		p.Headers["subject"] = subject
+		p.Headers["title"] = title
 	}
 
 	if visibility, ok := fields["visibility"]; !ok {

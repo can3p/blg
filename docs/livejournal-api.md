@@ -130,10 +130,23 @@ From cl-journal reference implementation:
 5. Store sync timestamp with each downloaded entry
 6. Repeat from step 1 until no new items
 
+## Testing API Connectivity
+
+Before running the validation script, verify the API is accessible:
+
+```bash
+curl -s -X POST https://www.livejournal.com/interface/xmlrpc \
+  -H "Content-Type: text/xml" \
+  -d '<?xml version="1.0"?><methodCall><methodName>LJ.XMLRPC.getchallenge</methodName><params><param><value><struct></struct></value></param></params></methodCall>'
+```
+
+A successful response contains a `challenge` string.
+
 ## Important Notes
 
 1. **Protocol version**: Set `ver=1` for Unicode support
 2. **Line endings**: LJ converts newlines to `<BR>` when displaying
 3. **Images**: LJ doesn't have native image hosting - use external services
-4. **Rate limiting**: Be mindful of API call frequency
-5. **Encoding**: Posts may be base64 encoded in responses
+4. **Rate limiting**: API allows ~1 request per second. The client has built-in rate limiting and retry with exponential backoff.
+5. **User-Agent header**: Required. LiveJournal rejects requests without a User-Agent header with "connection reset by peer". The client sends `blg/1.0 (https://github.com/can3p/blg)`.
+6. **Unicode/Base64 encoding**: When `ver=1` is set, LiveJournal returns Unicode content (like Cyrillic text) as base64-encoded strings using the `<base64>` XML-RPC type instead of `<string>`. The client automatically decodes these values.

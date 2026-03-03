@@ -12,8 +12,8 @@ func TestPreparePost_BasicFields(t *testing.T) {
 	c := &client{}
 
 	fields := map[string]string{
-		"title":   "Test Post",
-		"privacy": "public",
+		"title":      "Test Post",
+		"visibility": "public",
 	}
 	body := "Hello world!"
 
@@ -25,33 +25,33 @@ func TestPreparePost_BasicFields(t *testing.T) {
 	assert.Equal(t, "public", post.Headers["security"])
 }
 
-func TestPreparePost_PrivacyMapping(t *testing.T) {
+func TestPreparePost_VisibilityMapping(t *testing.T) {
 	tests := []struct {
 		name         string
-		privacy      string
+		visibility   string
 		expectedSec  string
 		expectedMask any
 		expectError  bool
 	}{
 		{
 			name:        "public",
-			privacy:     "public",
+			visibility:  "public",
 			expectedSec: "public",
 		},
 		{
 			name:        "private",
-			privacy:     "private",
+			visibility:  "private",
 			expectedSec: "private",
 		},
 		{
 			name:         "friends",
-			privacy:      "friends",
+			visibility:   "friends",
 			expectedSec:  "usemask",
 			expectedMask: 1,
 		},
 		{
 			name:        "invalid",
-			privacy:     "invalid",
+			visibility:  "invalid",
 			expectError: true,
 		},
 	}
@@ -60,7 +60,7 @@ func TestPreparePost_PrivacyMapping(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &client{}
 			fields := map[string]string{
-				"privacy": tt.privacy,
+				"visibility": tt.visibility,
 			}
 
 			post, _, err := c.PreparePost(fields, "body")
@@ -83,13 +83,13 @@ func TestPreparePost_OptionalFields(t *testing.T) {
 	c := &client{}
 
 	fields := map[string]string{
-		"title":    "Test",
-		"privacy":  "public",
-		"tags":     "coding, go",
-		"music":    "Pink Floyd - Time",
-		"mood":     "happy",
-		"location": "Amsterdam",
-		"journal":  "community_name",
+		"title":      "Test",
+		"visibility": "public",
+		"tags":       "coding, go",
+		"music":      "Pink Floyd - Time",
+		"mood":       "happy",
+		"location":   "Amsterdam",
+		"journal":    "community_name",
 	}
 
 	post, _, err := c.PreparePost(fields, "body")
@@ -104,17 +104,17 @@ func TestPreparePost_OptionalFields(t *testing.T) {
 	assert.Equal(t, "community_name", post.Headers["usejournal"])
 }
 
-func TestPreparePost_Draft(t *testing.T) {
+func TestPreparePost_NotPublished(t *testing.T) {
 	c := &client{}
 
 	fields := map[string]string{
-		"title": "Draft Post",
-		"draft": "yes",
+		"title":     "Unpublished Post",
+		"published": "no",
 	}
 
 	_, _, err := c.PreparePost(fields, "body")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "draft")
+	assert.Contains(t, err.Error(), "not published")
 }
 
 func TestPreparePost_ExtractImages(t *testing.T) {
@@ -137,7 +137,8 @@ func TestNewPostTemplate(t *testing.T) {
 
 	template := c.NewPostTemplate("My New Post")
 	assert.Contains(t, template, "title: My New Post")
-	assert.Contains(t, template, "privacy: public")
+	assert.Contains(t, template, "visibility:")
+	assert.Contains(t, template, "published:")
 	assert.Contains(t, template, "tags:")
 }
 
@@ -228,7 +229,8 @@ func TestFormatRemotePost(t *testing.T) {
 
 	contentStr := string(content)
 	assert.Contains(t, contentStr, "title: Test Subject")
-	assert.Contains(t, contentStr, "privacy: private")
+	assert.Contains(t, contentStr, "visibility: private")
+	assert.Contains(t, contentStr, "published: yes")
 	assert.Contains(t, contentStr, "tags: tag1, tag2")
 	assert.Contains(t, contentStr, "music: Some Song")
 	assert.Contains(t, contentStr, "Post body content")

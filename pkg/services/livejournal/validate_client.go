@@ -1,5 +1,22 @@
 //go:build ignore
 
+// validate_client.go - LiveJournal API validation script
+//
+// This script tests the LiveJournal XML-RPC API client against the real API.
+// It creates test posts (marked private), validates behavior, and cleans up.
+//
+// Usage:
+//   cd pkg/services/livejournal
+//   LJ_USERNAME=<username> LJ_PASSWORD=<password> go run validate_client.go
+//
+// Before running, verify the API is accessible with:
+//   curl -s -X POST https://www.livejournal.com/interface/xmlrpc \
+//     -H "Content-Type: text/xml" \
+//     -d '<?xml version="1.0"?><methodCall><methodName>LJ.XMLRPC.getchallenge</methodName><params><param><value><struct></struct></value></param></params></methodCall>'
+//
+// Note: Running too many times in quick succession may trigger LJ's rate limiting.
+// The client has built-in rate limiting (1 RPS) and retry with exponential backoff.
+
 package main
 
 import (
@@ -189,6 +206,19 @@ func main() {
 
 	fmt.Println("=== LiveJournal Client Validation ===")
 
+	// Test 0: Verify API connectivity with getchallenge
+	fmt.Println("--- Test 0: API connectivity check ---")
+	{
+		challenge, err := client.rpc.GetChallenge()
+		if err != nil {
+			fmt.Printf("FATAL: API connectivity failed: %v\n", err)
+			fmt.Println("Run curl test to verify API is accessible:")
+			fmt.Println("  curl -s -X POST https://www.livejournal.com/interface/xmlrpc -H 'Content-Type: text/xml' -d '<?xml version=\"1.0\"?><methodCall><methodName>LJ.XMLRPC.getchallenge</methodName><params><param><value><struct></struct></value></param></params></methodCall>'")
+			os.Exit(1)
+		}
+		fmt.Printf("API connected, got challenge: %s...\n", challenge[:min(40, len(challenge))])
+	}
+
 	// Test 1: Basic post creation and retrieval
 	fmt.Println("--- Test 1: Basic post creation and retrieval ---")
 	{
@@ -199,7 +229,10 @@ func main() {
 			nil,
 		)
 		if err != nil {
+			fmt.Printf("DEBUG: createPost failed: %v\n", err)
 			results = append(results, testResult{"Basic creation", false, err.Error()})
+			fmt.Println("FATAL: First test failed, stopping.")
+			goto summary
 		} else {
 			createdPosts = append(createdPosts, itemID)
 			fmt.Printf("Created post: itemID=%d, url=%s\n", itemID, url)
@@ -624,6 +657,7 @@ code block
 		}
 	}
 
+summary:
 	// Print summary
 	fmt.Println("\n=== Test Summary ===")
 	passed := 0

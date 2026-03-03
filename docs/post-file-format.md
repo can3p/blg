@@ -20,13 +20,15 @@ Post body in markdown...
 
 | Field | Description | Values |
 |-------|-------------|--------|
-| `title` / `subject` | Post title | Any string (max 255 chars for LJ) |
+| `title` | Post title | Any string (max 255 chars for LJ) |
+| `visibility` | Post visibility | Service-specific values (see below) |
+| `published` | Whether post is published | `yes`, `no` |
 
 ### pcom Service Fields
 
 | Field | Required | Values |
 |-------|----------|--------|
-| `subject` | Yes | Post title |
+| `title` | Yes | Post title |
 | `visibility` | Yes | `direct_only`, `second_degree` |
 | `published` | Yes | `yes`, `no` |
 
@@ -35,15 +37,15 @@ Post body in markdown...
 | Field | Required | Values |
 |-------|----------|--------|
 | `title` | No | Post title |
-| `privacy` | No | `public`, `private`, `friends`, or group number |
+| `visibility` | No | `public` (default), `private`, `friends` |
+| `published` | No | `yes` (default), `no` - if `no`, skip during push |
 | `tags` | No | Comma-separated tag list |
 | `music` | No | Current music |
 | `mood` | No | Current mood |
 | `location` | No | Current location |
 | `journal` | No | Community name (to post to community) |
-| `draft` | No | If present, skip this file during push |
 
-## Privacy Mapping
+## Visibility Mapping (LiveJournal/Dreamwidth)
 
 | File value | LJ security | allowmask |
 |------------|-------------|-----------|
@@ -150,7 +152,7 @@ When fetching posts, filenames are generated from:
 ### pcom Post
 
 ```markdown
-subject: My New Post
+title: My New Post
 visibility: direct_only
 published: yes
 
@@ -163,7 +165,8 @@ This is my post content with **markdown**.
 
 ```markdown
 title: Thoughts on Programming
-privacy: friends
+visibility: friends
+published: yes
 tags: coding, thoughts
 music: Pink Floyd - Time
 mood: contemplative
@@ -173,12 +176,12 @@ Today I've been thinking about code quality...
 See also [my previous post](2024-01-10-code-review.md).
 ```
 
-### Draft Post (skipped during push)
+### Unpublished Post (skipped during push)
 
 ```markdown
 title: Work in Progress
-privacy: private
-draft: yes
+visibility: private
+published: no
 
-This post won't be pushed until draft is removed.
+This post won't be pushed until published is set to yes.
 ```
