@@ -44,6 +44,7 @@ blg/
 │   │   ├── post.go        # Post types
 │   │   ├── remote_posts.go # Remote post types
 │   │   ├── storage.go     # Config types
+│   │   ├── linkresolver.go # Link resolution types
 │   │   └── errors.go
 │   └── util/
 │       └── pwd/           # Password management (keyring)
@@ -115,6 +116,24 @@ func init() {
 }
 ```
 
+## Implementing New Services
+
+When implementing a new service, the following functionality **must** be provided:
+
+1. **Service Interface**: Implement all methods in `types.Service` interface
+2. **Link Resolution**: Support bidirectional link resolution between remote URLs and local filenames
+   - During push: Convert local `.md` links to remote URLs
+   - During fetch/sync: Convert remote URLs back to local filenames
+   - Use `types.LinkResolver` for the resolver function signature
+   - Handle anchors (e.g., `url#section` → `file.md#section`)
+   - Preserve external links and unknown internal links
+3. **Image Handling**: Support image extraction and replacement (if the service supports images)
+4. **Post Formatting**: Implement `FormatRemotePost` to convert remote posts to local markdown files
+
+See existing implementations for reference:
+- `pkg/services/pcom/` - Reference implementation (markdown-native)
+- `pkg/services/livejournal/` - HTML-based service with HTML↔markdown conversion
+
 ## LiveJournal API
 
 Uses XML-RPC at `/interface/xmlrpc`. Key methods:
@@ -137,6 +156,51 @@ From cl-journal reference:
 - `location` - Current location (prop: current_location)
 - `journal` - Post to community instead of user journal (usejournal)
 - `draft` - If present, skip this file
+
+## Link Resolution
+
+Posts can reference each other using local filenames (e.g., `[see this](other-post.md)`). The link resolution system handles bidirectional conversion:
+
+### Push (local → remote)
+- Local `.md` links are converted to remote URLs
+- Example: `[see this](other-post.md)` → `[see this](https://user.livejournal.com/12345.html)`
+
+### Fetch/Sync (remote → local)
+- Remote URLs are converted back to local filenames
+- Example: `https://user.livejournal.com/12345.html` → `other-post.md`
+
+### Shared Types (`pkg/types/linkresolver.go`)
+
+```go
+// LinkResolver is a function that takes a URL and returns the local filename
+type LinkResolver func(url string) (filename string, found bool)
+
+// PostURLMapping represents a mapping from a remote URL to a local filename
+type PostURLMapping struct {
+    URL      string
+    Filename string
+}
+
+// BuildLinkResolver creates a LinkResolver from a list of mappings
+func BuildLinkResolver(mappings []PostURLMapping) LinkResolver
+```
+
+### Service-Specific Implementation
+
+Each service must implement link resolution appropriate to its content format:
+
+| Service | Content Format | Resolution Method |
+|---------|---------------|-------------------|
+| **livejournal** | HTML | `HTMLToMarkdownWithLinkResolver(html, resolver)` |
+| **pcom** | Markdown | `parser.ReplaceLinksWithResolver(resolver)` |
+
+### Corner Cases Handled
+
+- External links (non-service URLs) are preserved as-is
+- Unknown internal links (not in mapping) are preserved
+- Anchors are preserved: `url#section` → `file.md#section`
+- User profile links (`@username`) are handled separately
+- Circular references (posts linking to each other) work correctly
 
 ## Migration Considerations
 

@@ -4,31 +4,16 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/can3p/blg/pkg/types"
 	"golang.org/x/net/html"
 )
 
-// LinkResolver is a function that takes a URL and returns the local filename
-// if the URL corresponds to a known post, or false if not found.
-type LinkResolver func(url string) (filename string, found bool)
-
-// PostURLMapping represents a mapping from a remote URL to a local filename.
-type PostURLMapping struct {
-	URL      string
-	Filename string
-}
+// Re-export types for backward compatibility
+type LinkResolver = types.LinkResolver
+type PostURLMapping = types.PostURLMapping
 
 // BuildLinkResolver creates a LinkResolver from a list of URL-to-filename mappings.
-func BuildLinkResolver(mappings []PostURLMapping) LinkResolver {
-	urlMap := make(map[string]string, len(mappings))
-	for _, m := range mappings {
-		urlMap[m.URL] = m.Filename
-	}
-
-	return func(u string) (string, bool) {
-		fname, ok := urlMap[u]
-		return fname, ok
-	}
-}
+var BuildLinkResolver = types.BuildLinkResolver
 
 // HTMLToMarkdownWithLinkResolver converts HTML content to markdown format,
 // resolving internal post links to local filenames using the provided resolver.
