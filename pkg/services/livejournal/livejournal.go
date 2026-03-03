@@ -122,7 +122,7 @@ func (c *client) DownloadImage(url string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "downloading image from %s", url)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("failed to download image: HTTP %d", resp.StatusCode)
@@ -283,7 +283,7 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 	var sb strings.Builder
 
 	if subject != "" {
-		sb.WriteString(fmt.Sprintf("title: %s\n", subject))
+		fmt.Fprintf(&sb, "title: %s\n", subject)
 	}
 
 	// Map security to privacy
@@ -295,22 +295,22 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 		privacy = "friends"
 	}
 	if privacy != "public" {
-		sb.WriteString(fmt.Sprintf("privacy: %s\n", privacy))
+		fmt.Fprintf(&sb, "privacy: %s\n", privacy)
 	}
 
 	// Extract props
 	if props, ok := m["props"].(map[string]any); ok {
 		if tags := getString(props, "taglist"); tags != "" {
-			sb.WriteString(fmt.Sprintf("tags: %s\n", tags))
+			fmt.Fprintf(&sb, "tags: %s\n", tags)
 		}
 		if music := getString(props, "current_music"); music != "" {
-			sb.WriteString(fmt.Sprintf("music: %s\n", music))
+			fmt.Fprintf(&sb, "music: %s\n", music)
 		}
 		if mood := getString(props, "current_mood"); mood != "" {
-			sb.WriteString(fmt.Sprintf("mood: %s\n", mood))
+			fmt.Fprintf(&sb, "mood: %s\n", mood)
 		}
 		if location := getString(props, "current_location"); location != "" {
-			sb.WriteString(fmt.Sprintf("location: %s\n", location))
+			fmt.Fprintf(&sb, "location: %s\n", location)
 		}
 	}
 

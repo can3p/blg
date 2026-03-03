@@ -127,7 +127,7 @@ func (c *client) fetchPostsPage(updatedSince int64, cursor string) ([]*types.Rem
 		return nil, nil, "", errors.Errorf("Failed to download posts, return code should be 200, got %d instead", res.StatusCode)
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	respBody, err := io.ReadAll(res.Body)
 
@@ -198,7 +198,7 @@ func (c *client) DownloadImage(fname string) ([]byte, error) {
 		return nil, errors.Errorf("Failed to download an image, return code should be 200, got %d instead", res.StatusCode)
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	respBody, err := io.ReadAll(res.Body)
 
@@ -330,7 +330,7 @@ func (c *client) UploadImage(fname string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -366,7 +366,7 @@ func (c *client) UploadImage(fname string) (string, error) {
 		return "", errors.Errorf("Failed to upload an image, return code should be 200, got %d instead", res.StatusCode)
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	respBody, err := io.ReadAll(res.Body)
 
@@ -435,7 +435,7 @@ func (c *client) _sendPost(url string, p *types.Post) (string, error) {
 		return "", errors.Errorf("Failed to save a post, return code should be 200, got %d instead", res.StatusCode)
 	}
 
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	respBody, err := io.ReadAll(res.Body)
 
@@ -475,12 +475,7 @@ func (c *client) Delete(remoteID string) error {
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		fmt.Printf("client: error making http request: %s\n", err)
-		os.Exit(1)
-	}
-
-	if err != nil {
-		return err
+		return errors.Wrapf(err, "error making http request")
 	}
 
 	if res.StatusCode == http.StatusOK {

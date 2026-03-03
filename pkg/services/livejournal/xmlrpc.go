@@ -27,13 +27,13 @@ func newXMLRPCClient(host string) *xmlrpcClient {
 }
 
 type xmlrpcValue struct {
-	String  *string          `xml:"string,omitempty"`
-	Int     *int             `xml:"int,omitempty"`
-	I4      *int             `xml:"i4,omitempty"`
-	Boolean *int             `xml:"boolean,omitempty"`
-	Struct  *xmlrpcStruct    `xml:"struct,omitempty"`
-	Array   *xmlrpcArray     `xml:"array,omitempty"`
-	Base64  *string          `xml:"base64,omitempty"`
+	String  *string       `xml:"string,omitempty"`
+	Int     *int          `xml:"int,omitempty"`
+	I4      *int          `xml:"i4,omitempty"`
+	Boolean *int          `xml:"boolean,omitempty"`
+	Struct  *xmlrpcStruct `xml:"struct,omitempty"`
+	Array   *xmlrpcArray  `xml:"array,omitempty"`
+	Base64  *string       `xml:"base64,omitempty"`
 }
 
 type xmlrpcMember struct {
@@ -85,7 +85,7 @@ func (c *xmlrpcClient) call(method string, params map[string]any) (map[string]an
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
