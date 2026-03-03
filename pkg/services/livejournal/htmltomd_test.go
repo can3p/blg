@@ -81,7 +81,7 @@ func TestHTMLToMarkdown_Basic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HTMLToMarkdown(tt.html)
+			result := HTMLToMarkdownWithLinkResolver(tt.html, nil)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -112,7 +112,7 @@ func TestHTMLToMarkdown_Headings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HTMLToMarkdown(tt.html)
+			result := HTMLToMarkdownWithLinkResolver(tt.html, nil)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -146,7 +146,7 @@ func TestHTMLToMarkdown_Lists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HTMLToMarkdown(tt.html)
+			result := HTMLToMarkdownWithLinkResolver(tt.html, nil)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -154,7 +154,7 @@ func TestHTMLToMarkdown_Lists(t *testing.T) {
 
 func TestHTMLToMarkdown_Blockquote(t *testing.T) {
 	html := "<blockquote>This is a quote</blockquote>"
-	result := HTMLToMarkdown(html)
+	result := HTMLToMarkdownWithLinkResolver(html, nil)
 	assert.Equal(t, "> This is a quote", result)
 }
 
@@ -167,7 +167,7 @@ func TestHTMLToMarkdown_Complex(t *testing.T) {
 <blockquote>A quoted text</blockquote>
 <p>Check out <a href="https://example.com">this link</a> for more.</p>`
 
-	result := HTMLToMarkdown(html)
+	result := HTMLToMarkdownWithLinkResolver(html, nil)
 
 	// Verify key conversions happened
 	assert.Contains(t, result, "**bold**")
@@ -188,7 +188,7 @@ func TestHTMLToMarkdown_Complex(t *testing.T) {
 func TestHTMLToMarkdown_PreservesPlainMarkdown(t *testing.T) {
 	// If input is already markdown (no HTML), it should pass through unchanged
 	markdown := "This is **bold** and *italic* text.\n\n- Item 1\n- Item 2"
-	result := HTMLToMarkdown(markdown)
+	result := HTMLToMarkdownWithLinkResolver(markdown, nil)
 	assert.Equal(t, markdown, result)
 }
 
@@ -211,7 +211,7 @@ func TestHTMLToMarkdown_RoundTrip(t *testing.T) {
 <p><a href="https://example.com">A link</a></p>`
 
 	// Convert HTML back to markdown
-	convertedMarkdown := HTMLToMarkdown(htmlFromLJ)
+	convertedMarkdown := HTMLToMarkdownWithLinkResolver(htmlFromLJ, nil)
 
 	// The converted markdown should contain the same semantic elements
 	// (exact formatting may differ slightly)
@@ -247,7 +247,7 @@ func TestHTMLToMarkdown_LJEmbed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HTMLToMarkdown(tt.html)
+			result := HTMLToMarkdownWithLinkResolver(tt.html, nil)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -283,7 +283,7 @@ func TestHTMLToMarkdown_UserLink(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HTMLToMarkdown(tt.html)
+			result := HTMLToMarkdownWithLinkResolver(tt.html, nil)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -301,7 +301,7 @@ func TestHTMLToMarkdown_RoundTripYouTube(t *testing.T) {
 	assert.Contains(t, html, `<lj-embed source="youtube" vid="dQw4w9WgXcQ">`)
 
 	// Convert back to markdown
-	resultMD := HTMLToMarkdown(html)
+	resultMD := HTMLToMarkdownWithLinkResolver(html, nil)
 	assert.Equal(t, originalMD, resultMD)
 }
 
@@ -317,7 +317,7 @@ func TestHTMLToMarkdown_RoundTripUserHandle(t *testing.T) {
 	assert.Contains(t, html, `<a href="https://john_doe.livejournal.com/">@john_doe</a>`)
 
 	// Convert back to markdown
-	resultMD := HTMLToMarkdown(html)
+	resultMD := HTMLToMarkdownWithLinkResolver(html, nil)
 	assert.Contains(t, resultMD, "@john_doe")
 }
 
@@ -335,7 +335,7 @@ What do you think?`
 	html := MarkdownToHTML(originalMD, config)
 
 	// Convert back to markdown
-	resultMD := HTMLToMarkdown(html)
+	resultMD := HTMLToMarkdownWithLinkResolver(html, nil)
 
 	// Should preserve the key elements
 	assert.Contains(t, resultMD, "@alice")

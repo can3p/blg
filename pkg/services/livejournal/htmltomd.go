@@ -1,64 +1,68 @@
 package livejournal
 
 import (
-	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
+	"github.com/can3p/blg/pkg/types"
 	"golang.org/x/net/html"
 )
+
+// Re-export types for backward compatibility
+type LinkResolver = types.LinkResolver
+type PostURLMapping = types.PostURLMapping
 
 // Regex to extract username from LJ-style user URLs
 var userLinkRE = regexp.MustCompile(`^https?://([a-z][0-9a-z_]+)\.(?:livejournal\.com|dreamwidth\.org)/?$`)
 
-// HTMLToMarkdown converts HTML content to markdown format.
-// This is used when fetching posts from LiveJournal that were created
-// via the web UI (which stores content as HTML).
-// See cl-journal/src/markdownify.lisp for reference implementation.
-func HTMLToMarkdown(htmlContent string) string {
+// BuildLinkResolver creates a LinkResolver from a list of URL-to-filename mappings.
+var BuildLinkResolver = types.BuildLinkResolver
+
+// HTMLToMarkdownWithLinkResolver converts HTML content to markdown format,
+// resolving internal post links to local filenames using the provided resolver.
+// If resolver is nil, links are preserved as-is.
+func HTMLToMarkdownWithLinkResolver(htmlContent string, resolver LinkResolver) string {
 	doc, err := html.Parse(strings.NewReader(htmlContent))
 	if err != nil {
 		return htmlContent
 	}
 
 	var sb strings.Builder
-	convertNode(&sb, doc)
+	convertNodeWithResolver(&sb, doc, resolver)
 	return strings.TrimSpace(sb.String())
 }
 
-func convertNode(sb *strings.Builder, n *html.Node) {
+func convertNodeWithResolver(sb *strings.Builder, n *html.Node, resolver LinkResolver) {
 	switch n.Type {
 	case html.TextNode:
 		text := n.Data
-		// Collapse multiple whitespace but preserve single spaces
 		if strings.TrimSpace(text) != "" {
 			sb.WriteString(text)
 		} else if text != "" && (strings.Contains(text, " ") || strings.Contains(text, "\n")) {
-			// Preserve a single space for whitespace-only text nodes between elements
 			sb.WriteString(" ")
 		}
 	case html.ElementNode:
-		convertElement(sb, n)
+		convertElementWithResolver(sb, n, resolver)
 	case html.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 	}
 }
 
-func convertElement(sb *strings.Builder, n *html.Node) {
+func convertElementWithResolver(sb *strings.Builder, n *html.Node, resolver LinkResolver) {
 	tag := strings.ToLower(n.Data)
 
 	switch tag {
 	case "html", "head", "body":
-		// Skip wrapper elements, just process children
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 
 	case "p":
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
@@ -68,28 +72,28 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 	case "strong", "b":
 		sb.WriteString("**")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("**")
 
 	case "em", "i":
 		sb.WriteString("*")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("*")
 
 	case "code":
 		sb.WriteString("`")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("`")
 
 	case "pre":
 		sb.WriteString("```\n")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n```\n\n")
 
@@ -97,17 +101,13 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		href := getAttr(n, "href")
 		var linkText strings.Builder
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(&linkText, c)
+			convertNodeWithResolver(&linkText, c, resolver)
 		}
 		text := strings.TrimSpace(linkText.String())
-		if text == "" {
-			text = href
-		}
 
 		// Check if this is a user link (e.g., https://username.livejournal.com/)
 		if match := userLinkRE.FindStringSubmatch(href); match != nil {
 			username := match[1]
-			// If link text is @username, just output @username
 			if text == "@"+username {
 				sb.WriteString("@")
 				sb.WriteString(username)
@@ -115,10 +115,21 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 			}
 		}
 
+		// Try to resolve the link to a local filename
+		resolvedHref := href
+		if resolver != nil {
+			resolvedHref = resolveLink(href, resolver)
+		}
+
+		// If link text is empty, use the resolved filename or original URL
+		if text == "" {
+			text = resolvedHref
+		}
+
 		sb.WriteString("[")
 		sb.WriteString(text)
 		sb.WriteString("](")
-		sb.WriteString(href)
+		sb.WriteString(resolvedHref)
 		sb.WriteString(")")
 
 	case "img":
@@ -139,7 +150,7 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 			if c.Type == html.ElementNode && strings.ToLower(c.Data) == "li" {
 				sb.WriteString("- ")
 				for cc := c.FirstChild; cc != nil; cc = cc.NextSibling {
-					convertNode(sb, cc)
+					convertNodeWithResolver(sb, cc, resolver)
 				}
 				sb.WriteString("\n")
 			}
@@ -151,10 +162,9 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		num := 1
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode && strings.ToLower(c.Data) == "li" {
-				sb.WriteString(strings.Repeat(" ", 0))
 				sb.WriteString(string(rune('0'+num)) + ". ")
 				for cc := c.FirstChild; cc != nil; cc = cc.NextSibling {
-					convertNode(sb, cc)
+					convertNodeWithResolver(sb, cc, resolver)
 				}
 				sb.WriteString("\n")
 				num++
@@ -165,7 +175,7 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 	case "blockquote":
 		var quoteContent strings.Builder
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(&quoteContent, c)
+			convertNodeWithResolver(&quoteContent, c, resolver)
 		}
 		lines := strings.Split(strings.TrimSpace(quoteContent.String()), "\n")
 		for _, line := range lines {
@@ -178,42 +188,42 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 	case "h1":
 		sb.WriteString("\n# ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
 	case "h2":
 		sb.WriteString("\n## ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
 	case "h3":
 		sb.WriteString("\n### ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
 	case "h4":
 		sb.WriteString("\n#### ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
 	case "h5":
 		sb.WriteString("\n##### ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
 	case "h6":
 		sb.WriteString("\n###### ")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 		sb.WriteString("\n\n")
 
@@ -221,31 +231,25 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		sb.WriteString("\n---\n\n")
 
 	case "div", "span":
-		// Just process children for generic containers
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 
 	case "lj-embed":
-		// Handle LJ-specific embeds (YouTube, Vimeo) - convert back to URLs
 		source := getAttr(n, "source")
 		vid := getAttr(n, "vid")
 		switch source {
 		case "youtube":
-			// Convert back to YouTube URL
-			fmt.Fprintf(sb, "https://www.youtube.com/watch?v=%s", vid)
+			sb.WriteString("https://www.youtube.com/watch?v=" + vid)
 		case "vimeo":
-			// Convert back to Vimeo URL
-			fmt.Fprintf(sb, "https://vimeo.com/%s", vid)
+			sb.WriteString("https://vimeo.com/" + vid)
 		default:
-			// Unknown embed, keep as-is
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				convertNode(sb, c)
+				convertNodeWithResolver(sb, c, resolver)
 			}
 		}
 
 	case "lj":
-		// Handle <lj user="username"> tag - convert to @username
 		user := getAttr(n, "user")
 		if user != "" {
 			sb.WriteString("@")
@@ -253,11 +257,37 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		}
 
 	default:
-		// For unknown elements, just process children
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			convertNode(sb, c)
+			convertNodeWithResolver(sb, c, resolver)
 		}
 	}
+}
+
+// resolveLink attempts to resolve a URL to a local filename.
+// It handles URLs with anchors by preserving the anchor in the result.
+func resolveLink(href string, resolver LinkResolver) string {
+	// Parse the URL to extract base and fragment
+	parsed, err := url.Parse(href)
+	if err != nil {
+		return href
+	}
+
+	// Build the base URL without fragment
+	baseURL := *parsed
+	baseURL.Fragment = ""
+	baseURLStr := baseURL.String()
+
+	// Try to resolve the base URL
+	if filename, ok := resolver(baseURLStr); ok {
+		// If there's a fragment, append it to the filename
+		if parsed.Fragment != "" {
+			return filename + "#" + parsed.Fragment
+		}
+		return filename
+	}
+
+	// Not found, return original href
+	return href
 }
 
 func getAttr(n *html.Node, key string) string {

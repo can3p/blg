@@ -630,7 +630,7 @@ code block
 					results = append(results, testResult{"HTML to Markdown", false, "Event is empty"})
 				} else {
 					// Convert HTML to markdown using our HTMLToMarkdown function
-					markdown := livejournal.HTMLToMarkdown(event)
+					markdown := livejournal.HTMLToMarkdownWithLinkResolver(event, nil)
 					fmt.Printf("Converted to markdown:\n%s\n", markdown)
 
 					// Verify conversion produced expected markdown
