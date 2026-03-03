@@ -48,7 +48,7 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 	case strings.Contains(bodyStr, "getchallenge"):
 		m.challengeID++
 		challenge := fmt.Sprintf("c0:test:%d:60:random:hash", m.challengeID)
-		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>challenge</name><value><string>` + challenge + `</string></value></member>
 <member><name>server_time</name><value><int>1772497135</int></value></member>
@@ -73,7 +73,7 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 		}
 
 		url := fmt.Sprintf("https://test.livejournal.com/%d.html", itemID*256+58)
-		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
+		_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>url</name><value><string>%s</string></value></member>
@@ -100,7 +100,7 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 		if event == "" && subject == "" {
 			// Delete
 			delete(m.posts, realItemID)
-			w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>anum</name><value><int>58</int></value></member>
@@ -112,7 +112,7 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 				post["event"] = event
 			}
 			url := fmt.Sprintf("https://test.livejournal.com/%d.html", realItemID*256+58)
-			w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>url</name><value><string>%s</string></value></member>
@@ -127,14 +127,14 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 			if items.Len() > 0 {
 				items.WriteString("")
 			}
-			items.WriteString(fmt.Sprintf(`<value><struct>
+			fmt.Fprintf(&items, `<value><struct>
 <member><name>item</name><value><string>L-%d</string></value></member>
 <member><name>action</name><value><string>create</string></value></member>
 <member><name>time</name><value><string>2026-03-03 00:19:13</string></value></member>
-</struct></value>`, id))
+</struct></value>`, id)
 		}
 
-		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
+		_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>syncitems</name><value><array><data>%s</data></array></value></member>
 <member><name>count</name><value><int>%d</int></value></member>
@@ -152,24 +152,24 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 				security = "public"
 			}
 
-			events.WriteString(fmt.Sprintf(`<value><struct>
+			fmt.Fprintf(&events, `<value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>subject</name><value><string>%s</string></value></member>
 <member><name>event</name><value><string>%s</string></value></member>
 <member><name>security</name><value><string>%s</string></value></member>
 <member><name>eventtime</name><value><string>2026-03-03 01:19:00</string></value></member>
 <member><name>url</name><value><string>https://test.livejournal.com/%d.html</string></value></member>
-</struct></value>`, id, subject, event, security, id*256+58))
+</struct></value>`, id, subject, event, security, id*256+58)
 		}
 
-		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
+		_, _ = w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>events</name><value><array><data>%s</data></array></value></member>
 <member><name>lastsync</name><value><string>2026-03-03 00:19:13</string></value></member>
 </struct></value></param></params></methodResponse>`, events.String()))
 
 	default:
-		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+		_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><fault><value><struct>
 <member><name>faultCode</name><value><int>100</int></value></member>
 <member><name>faultString</name><value><string>Unknown method</string></value></member>

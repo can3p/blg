@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,7 +45,7 @@ func TestXMLRPCClient_Call_GetChallenge(t *testing.T) {
 		assert.Contains(t, string(body), "LJ.XMLRPC.getchallenge")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(getChallengeResponse))
+		_, _ = w.Write([]byte(getChallengeResponse))
 	}))
 	defer server.Close()
 
@@ -70,7 +69,7 @@ func TestXMLRPCClient_Call_PostEvent(t *testing.T) {
 		assert.Contains(t, bodyStr, "event")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(postEventResponse))
+		_, _ = w.Write([]byte(postEventResponse))
 	}))
 	defer server.Close()
 
@@ -106,7 +105,7 @@ func TestXMLRPCClient_Call_SyncItems(t *testing.T) {
 		assert.Contains(t, string(body), "LJ.XMLRPC.syncitems")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(syncItemsResponse))
+		_, _ = w.Write([]byte(syncItemsResponse))
 	}))
 	defer server.Close()
 
@@ -135,7 +134,7 @@ func TestXMLRPCClient_Call_GetEvents(t *testing.T) {
 		assert.Contains(t, string(body), "LJ.XMLRPC.getevents")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(getEventsResponse))
+		_, _ = w.Write([]byte(getEventsResponse))
 	}))
 	defer server.Close()
 
@@ -170,7 +169,7 @@ func TestXMLRPCClient_Call_EditEvent(t *testing.T) {
 		assert.Contains(t, string(body), "LJ.XMLRPC.editevent")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(editEventResponse))
+		_, _ = w.Write([]byte(editEventResponse))
 	}))
 	defer server.Close()
 
@@ -197,7 +196,7 @@ func TestXMLRPCClient_Call_DeleteEvent(t *testing.T) {
 		assert.Contains(t, bodyStr, "<name>event</name>")
 
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(deleteEventResponse))
+		_, _ = w.Write([]byte(deleteEventResponse))
 	}))
 	defer server.Close()
 
@@ -220,7 +219,7 @@ func TestXMLRPCClient_Call_DeleteEvent(t *testing.T) {
 func TestXMLRPCClient_Call_Fault(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(faultResponse))
+		_, _ = w.Write([]byte(faultResponse))
 	}))
 	defer server.Close()
 
@@ -236,7 +235,7 @@ func TestXMLRPCClient_Call_Fault(t *testing.T) {
 func TestXMLRPCClient_GetChallenge(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(getChallengeResponse))
+		_, _ = w.Write([]byte(getChallengeResponse))
 	}))
 	defer server.Close()
 
@@ -250,7 +249,7 @@ func TestXMLRPCClient_GetChallenge(t *testing.T) {
 func TestXMLRPCClient_AddAuth(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
-		w.Write([]byte(getChallengeResponse))
+		_, _ = w.Write([]byte(getChallengeResponse))
 	}))
 	defer server.Close()
 
@@ -371,7 +370,7 @@ func TestXMLRPCClient_NetworkError(t *testing.T) {
 
 func TestXMLRPCClient_InvalidXMLResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("not valid xml"))
+		_, _ = w.Write([]byte("not valid xml"))
 	}))
 	defer server.Close()
 
@@ -384,7 +383,7 @@ func TestXMLRPCClient_InvalidXMLResponse(t *testing.T) {
 
 func TestXMLRPCClient_EmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<?xml version="1.0"?><methodResponse><params></params></methodResponse>`))
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><methodResponse><params></params></methodResponse>`))
 	}))
 	defer server.Close()
 
@@ -393,64 +392,4 @@ func TestXMLRPCClient_EmptyResponse(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty response")
-}
-
-// mockLJServer creates a mock LiveJournal server for integration testing
-type mockLJServer struct {
-	*httptest.Server
-	posts       map[int]map[string]any
-	nextItemID  int
-	challengeID int
-}
-
-func newMockLJServer() *mockLJServer {
-	m := &mockLJServer{
-		posts:       make(map[int]map[string]any),
-		nextItemID:  100,
-		challengeID: 0,
-	}
-
-	m.Server = httptest.NewServer(http.HandlerFunc(m.handleRequest))
-	return m
-}
-
-func (m *mockLJServer) handleRequest(w http.ResponseWriter, r *http.Request) {
-	body, _ := io.ReadAll(r.Body)
-	bodyStr := string(body)
-
-	w.Header().Set("Content-Type", "text/xml")
-
-	switch {
-	case strings.Contains(bodyStr, "getchallenge"):
-		m.challengeID++
-		challenge := "c0:test:" + string(rune('0'+m.challengeID))
-		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<methodResponse><params><param><value><struct>
-<member><name>challenge</name><value><string>` + challenge + `</string></value></member>
-<member><name>server_time</name><value><int>1772497135</int></value></member>
-</struct></value></param></params></methodResponse>`))
-
-	case strings.Contains(bodyStr, "postevent"):
-		itemID := m.nextItemID
-		m.nextItemID++
-		m.posts[itemID] = map[string]any{"itemid": itemID}
-
-		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
-<methodResponse><params><param><value><struct>
-<member><name>itemid</name><value><int>` + string(rune('0'+itemID%10)) + `</int></value></member>
-<member><name>url</name><value><string>https://test.livejournal.com/` + string(rune('0'+itemID%10)) + `.html</string></value></member>
-</struct></value></param></params></methodResponse>`))
-
-	case strings.Contains(bodyStr, "editevent"):
-		w.Write([]byte(editEventResponse))
-
-	case strings.Contains(bodyStr, "syncitems"):
-		w.Write([]byte(syncItemsResponse))
-
-	case strings.Contains(bodyStr, "getevents"):
-		w.Write([]byte(getEventsResponse))
-
-	default:
-		w.Write([]byte(faultResponse))
-	}
 }

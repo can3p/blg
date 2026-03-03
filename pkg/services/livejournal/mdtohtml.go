@@ -236,7 +236,7 @@ func (p *userHandleParser) Parse(parent ast.Node, block text.Reader, pc parser.C
 
 	// Match @username pattern
 	match := usernameRE.FindSubmatch(line)
-	if match == nil || len(match) < 2 {
+	if len(match) < 2 {
 		return nil
 	}
 

@@ -233,10 +233,10 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		switch source {
 		case "youtube":
 			// Convert back to YouTube URL
-			sb.WriteString(fmt.Sprintf("https://www.youtube.com/watch?v=%s", vid))
+			fmt.Fprintf(sb, "https://www.youtube.com/watch?v=%s", vid)
 		case "vimeo":
 			// Convert back to Vimeo URL
-			sb.WriteString(fmt.Sprintf("https://vimeo.com/%s", vid))
+			fmt.Fprintf(sb, "https://vimeo.com/%s", vid)
 		default:
 			// Unknown embed, keep as-is
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
