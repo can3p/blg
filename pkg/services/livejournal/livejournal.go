@@ -22,7 +22,7 @@ var PrivacyValues = []string{"public", "private", "friends"}
 
 type client struct {
 	cfg      types.Config
-	rpc      *xmlrpcClient
+	rpc      *XMLRPCClient
 	username string
 	password string
 }
@@ -166,12 +166,12 @@ func (c *client) getSyncItems(updatedSince int64) ([]int, error) {
 		params["lastsync"] = t.Format("2006-01-02 15:04:05")
 	}
 
-	params, err := c.rpc.addAuth(params, c.username, c.password)
+	params, err := c.rpc.AddAuth(params, c.username, c.password)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := c.rpc.call("LJ.XMLRPC.syncitems", params)
+	result, err := c.rpc.Call("LJ.XMLRPC.syncitems", params)
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +215,12 @@ func (c *client) getEvents(itemIDs []int) ([]*types.RemotePost, []string, error)
 		"lineendings": "unix",
 	}
 
-	params, err := c.rpc.addAuth(params, c.username, c.password)
+	params, err := c.rpc.AddAuth(params, c.username, c.password)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	result, err := c.rpc.call("LJ.XMLRPC.getevents", params)
+	result, err := c.rpc.Call("LJ.XMLRPC.getevents", params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -375,12 +375,12 @@ func (c *client) Create(p *types.Post) (string, error) {
 		params["usejournal"] = usejournal
 	}
 
-	params, err = c.rpc.addAuth(params, c.username, c.password)
+	params, err = c.rpc.AddAuth(params, c.username, c.password)
 	if err != nil {
 		return "", err
 	}
 
-	result, err := c.rpc.call("LJ.XMLRPC.postevent", params)
+	result, err := c.rpc.Call("LJ.XMLRPC.postevent", params)
 	if err != nil {
 		return "", err
 	}
@@ -464,12 +464,12 @@ func (c *client) Update(remoteID string, p *types.Post) error {
 		params["usejournal"] = usejournal
 	}
 
-	params, err = c.rpc.addAuth(params, c.username, c.password)
+	params, err = c.rpc.AddAuth(params, c.username, c.password)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.rpc.call("LJ.XMLRPC.editevent", params)
+	_, err = c.rpc.Call("LJ.XMLRPC.editevent", params)
 	return err
 }
 
@@ -495,12 +495,12 @@ func (c *client) Delete(remoteID string) error {
 		"min":         now.Minute(),
 	}
 
-	params, err = c.rpc.addAuth(params, c.username, c.password)
+	params, err = c.rpc.AddAuth(params, c.username, c.password)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.rpc.call("LJ.XMLRPC.editevent", params)
+	_, err = c.rpc.Call("LJ.XMLRPC.editevent", params)
 	return err
 }
 

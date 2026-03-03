@@ -51,7 +51,7 @@ func TestXMLRPCClient_Call_GetChallenge(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	result, err := client.call("LJ.XMLRPC.getchallenge", map[string]any{})
+	result, err := client.Call("LJ.XMLRPC.getchallenge", map[string]any{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "c0:1772496000:1135:60:MAF2G9b5JvIq6M42Y65Q:df3b924ffb895ac200fa406c3c95714a", result["challenge"])
@@ -91,7 +91,7 @@ func TestXMLRPCClient_Call_PostEvent(t *testing.T) {
 		"min":            19,
 	}
 
-	result, err := client.call("LJ.XMLRPC.postevent", params)
+	result, err := client.Call("LJ.XMLRPC.postevent", params)
 
 	require.NoError(t, err)
 	assert.Equal(t, 71, result["itemid"])
@@ -111,7 +111,7 @@ func TestXMLRPCClient_Call_SyncItems(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	result, err := client.call("LJ.XMLRPC.syncitems", map[string]any{
+	result, err := client.Call("LJ.XMLRPC.syncitems", map[string]any{
 		"username": "testuser",
 		"ver":      1,
 	})
@@ -140,7 +140,7 @@ func TestXMLRPCClient_Call_GetEvents(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	result, err := client.call("LJ.XMLRPC.getevents", map[string]any{
+	result, err := client.Call("LJ.XMLRPC.getevents", map[string]any{
 		"username":   "testuser",
 		"ver":        1,
 		"selecttype": "one",
@@ -175,7 +175,7 @@ func TestXMLRPCClient_Call_EditEvent(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	result, err := client.call("LJ.XMLRPC.editevent", map[string]any{
+	result, err := client.Call("LJ.XMLRPC.editevent", map[string]any{
 		"username": "testuser",
 		"ver":      1,
 		"itemid":   71,
@@ -202,7 +202,7 @@ func TestXMLRPCClient_Call_DeleteEvent(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	result, err := client.call("LJ.XMLRPC.editevent", map[string]any{
+	result, err := client.Call("LJ.XMLRPC.editevent", map[string]any{
 		"username": "testuser",
 		"ver":      1,
 		"itemid":   71,
@@ -225,7 +225,7 @@ func TestXMLRPCClient_Call_Fault(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	_, err := client.call("LJ.XMLRPC.postevent", map[string]any{})
+	_, err := client.Call("LJ.XMLRPC.postevent", map[string]any{})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "XML-RPC fault")
@@ -241,7 +241,7 @@ func TestXMLRPCClient_GetChallenge(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	challenge, err := client.getChallenge()
+	challenge, err := client.GetChallenge()
 
 	require.NoError(t, err)
 	assert.Equal(t, "c0:1772496000:1135:60:MAF2G9b5JvIq6M42Y65Q:df3b924ffb895ac200fa406c3c95714a", challenge)
@@ -257,7 +257,7 @@ func TestXMLRPCClient_AddAuth(t *testing.T) {
 	client := newXMLRPCClient(server.URL)
 	params := map[string]any{"event": "test"}
 
-	result, err := client.addAuth(params, "testuser", "testpass")
+	result, err := client.AddAuth(params, "testuser", "testpass")
 
 	require.NoError(t, err)
 	assert.Equal(t, "testuser", result["username"])
@@ -364,7 +364,7 @@ func TestXMLRPCClient_NetworkError(t *testing.T) {
 	// Test handling of network errors
 	client := newXMLRPCClient("http://localhost:1") // Invalid port
 
-	_, err := client.call("test", map[string]any{})
+	_, err := client.Call("test", map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "executing request")
 }
@@ -376,7 +376,7 @@ func TestXMLRPCClient_InvalidXMLResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	_, err := client.call("test", map[string]any{})
+	_, err := client.Call("test", map[string]any{})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unmarshaling response")
@@ -389,7 +389,7 @@ func TestXMLRPCClient_EmptyResponse(t *testing.T) {
 	defer server.Close()
 
 	client := newXMLRPCClient(server.URL)
-	_, err := client.call("test", map[string]any{})
+	_, err := client.Call("test", map[string]any{})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty response")

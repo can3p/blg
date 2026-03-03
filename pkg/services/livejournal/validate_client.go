@@ -3,258 +3,38 @@
 package main
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/xml"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/can3p/blg/pkg/services/livejournal"
 )
 
-const endpoint = "https://www.livejournal.com/interface/xmlrpc"
+const ljEndpoint = "https://www.livejournal.com/interface/xmlrpc"
 
-// XML-RPC types
-type xmlrpcValue struct {
-	String  *string       `xml:"string,omitempty"`
-	Int     *int          `xml:"int,omitempty"`
-	I4      *int          `xml:"i4,omitempty"`
-	Boolean *int          `xml:"boolean,omitempty"`
-	Struct  *xmlrpcStruct `xml:"struct,omitempty"`
-	Array   *xmlrpcArray  `xml:"array,omitempty"`
-}
-
-type xmlrpcMember struct {
-	Name  string      `xml:"name"`
-	Value xmlrpcValue `xml:"value"`
-}
-
-type xmlrpcStruct struct {
-	Members []xmlrpcMember `xml:"member"`
-}
-
-type xmlrpcArray struct {
-	Data struct {
-		Values []xmlrpcValue `xml:"value"`
-	} `xml:"data"`
-}
-
-type xmlrpcParam struct {
-	Value xmlrpcValue `xml:"value"`
-}
-
-type xmlrpcMethodCall struct {
-	XMLName    xml.Name      `xml:"methodCall"`
-	MethodName string        `xml:"methodName"`
-	Params     []xmlrpcParam `xml:"params>param"`
-}
-
-type xmlrpcMethodResponse struct {
-	Params []xmlrpcParam `xml:"params>param"`
-	Fault  *struct {
-		Value xmlrpcValue `xml:"value"`
-	} `xml:"fault"`
-}
-
-func encodeValue(v any) xmlrpcValue {
-	switch val := v.(type) {
-	case string:
-		return xmlrpcValue{String: &val}
-	case int:
-		return xmlrpcValue{Int: &val}
-	case bool:
-		b := 0
-		if val {
-			b = 1
-		}
-		return xmlrpcValue{Boolean: &b}
-	case map[string]any:
-		members := make([]xmlrpcMember, 0, len(val))
-		keys := make([]string, 0, len(val))
-		for k := range val {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			members = append(members, xmlrpcMember{
-				Name:  k,
-				Value: encodeValue(val[k]),
-			})
-		}
-		return xmlrpcValue{Struct: &xmlrpcStruct{Members: members}}
-	case []any:
-		values := make([]xmlrpcValue, len(val))
-		for i, item := range val {
-			values[i] = encodeValue(item)
-		}
-		arr := &xmlrpcArray{}
-		arr.Data.Values = values
-		return xmlrpcValue{Array: arr}
-	default:
-		s := fmt.Sprintf("%v", val)
-		return xmlrpcValue{String: &s}
-	}
-}
-
-func encodeRequest(method string, params map[string]any) ([]byte, error) {
-	call := xmlrpcMethodCall{
-		MethodName: method,
-		Params:     []xmlrpcParam{{Value: encodeValue(params)}},
-	}
-
-	var buf bytes.Buffer
-	buf.WriteString(xml.Header)
-	enc := xml.NewEncoder(&buf)
-	if err := enc.Encode(call); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-func decodeValue(v xmlrpcValue) any {
-	switch {
-	case v.String != nil:
-		return *v.String
-	case v.Int != nil:
-		return *v.Int
-	case v.I4 != nil:
-		return *v.I4
-	case v.Boolean != nil:
-		return *v.Boolean != 0
-	case v.Struct != nil:
-		m := make(map[string]any)
-		for _, member := range v.Struct.Members {
-			m[member.Name] = decodeValue(member.Value)
-		}
-		return m
-	case v.Array != nil:
-		arr := make([]any, len(v.Array.Data.Values))
-		for i, val := range v.Array.Data.Values {
-			arr[i] = decodeValue(val)
-		}
-		return arr
-	default:
-		return nil
-	}
-}
-
-func decodeResponse(data []byte) (map[string]any, error) {
-	var resp xmlrpcMethodResponse
-	if err := xml.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshaling response: %w", err)
-	}
-
-	if resp.Fault != nil {
-		faultMap := decodeValue(resp.Fault.Value)
-		if m, ok := faultMap.(map[string]any); ok {
-			return nil, fmt.Errorf("XML-RPC fault: %v - %v", m["faultCode"], m["faultString"])
-		}
-		return nil, fmt.Errorf("XML-RPC fault: %v", faultMap)
-	}
-
-	if len(resp.Params) == 0 {
-		return nil, fmt.Errorf("empty response")
-	}
-
-	result := decodeValue(resp.Params[0].Value)
-	if m, ok := result.(map[string]any); ok {
-		return m, nil
-	}
-
-	return map[string]any{"result": result}, nil
-}
-
-func md5Hash(s string) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
-}
-
+// ljClient wraps the XMLRPCClient with credentials
 type ljClient struct {
+	rpc      *livejournal.XMLRPCClient
 	username string
 	password string
-	client   *http.Client
 }
 
 func newLJClient(username, password string) *ljClient {
 	return &ljClient{
+		rpc:      livejournal.NewXMLRPCClientWithEndpoint(ljEndpoint),
 		username: username,
 		password: password,
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
 func (c *ljClient) call(method string, params map[string]any) (map[string]any, error) {
-	reqBody, err := encodeRequest(method, params)
-	if err != nil {
-		return nil, fmt.Errorf("encoding request: %w", err)
-	}
-
-	var respBody []byte
-	var lastErr error
-
-	for i := 0; i < 3; i++ {
-		req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(reqBody))
-		if err != nil {
-			return nil, fmt.Errorf("creating request: %w", err)
-		}
-
-		req.Header.Set("Content-Type", "text/xml")
-		req.Header.Set("User-Agent", "blg/1.0")
-
-		resp, err := c.client.Do(req)
-		if err != nil {
-			lastErr = err
-			time.Sleep(time.Second * time.Duration(i+1))
-			continue
-		}
-
-		respBody, err = io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			lastErr = err
-			time.Sleep(time.Second * time.Duration(i+1))
-			continue
-		}
-
-		return decodeResponse(respBody)
-	}
-
-	return nil, fmt.Errorf("request failed after retries: %w", lastErr)
-}
-
-func (c *ljClient) getChallenge() (string, error) {
-	result, err := c.call("LJ.XMLRPC.getchallenge", map[string]any{})
-	if err != nil {
-		return "", err
-	}
-
-	challenge, ok := result["challenge"].(string)
-	if !ok {
-		return "", fmt.Errorf("challenge not found in response")
-	}
-
-	return challenge, nil
+	return c.rpc.Call(method, params)
 }
 
 func (c *ljClient) addAuth(params map[string]any) (map[string]any, error) {
-	challenge, err := c.getChallenge()
-	if err != nil {
-		return nil, fmt.Errorf("getting challenge: %w", err)
-	}
-
-	authResponse := md5Hash(challenge + md5Hash(c.password))
-
-	params["username"] = c.username
-	params["auth_method"] = "challenge"
-	params["auth_challenge"] = challenge
-	params["auth_response"] = authResponse
-	params["ver"] = 1
-
-	return params, nil
+	return c.rpc.AddAuth(params, c.username, c.password)
 }
 
 func (c *ljClient) createPost(subject, event, security string, props map[string]any) (int, string, error) {
@@ -407,7 +187,7 @@ func main() {
 		}
 	}()
 
-	fmt.Println("=== LiveJournal Client Validation ===\n")
+	fmt.Println("=== LiveJournal Client Validation ===")
 
 	// Test 1: Basic post creation and retrieval
 	fmt.Println("--- Test 1: Basic post creation and retrieval ---")
@@ -779,7 +559,7 @@ code block
 
 	// Test 9: HTML to Markdown conversion
 	// This test creates an HTML post on LJ, fetches it back, and verifies
-	// that the HTML has been converted to markdown format.
+	// that HTMLToMarkdown correctly converts it to markdown format.
 	// See cl-journal/src/markdownify.lisp for reference implementation.
 	fmt.Println("\n--- Test 9: HTML to Markdown conversion ---")
 	{
@@ -813,29 +593,31 @@ code block
 				event, _ := post["event"].(string)
 				fmt.Printf("Raw HTML from LJ:\n%s\n", event)
 
-				// TODO: When HTML-to-markdown conversion is implemented in FormatRemotePost,
-				// this test should verify the conversion produces:
-				// - **bold** instead of <strong>bold</strong>
-				// - *italic* or _italic_ instead of <em>italic</em>
-				// - * List item instead of <li>List item</li>
-				// - > A quoted text instead of <blockquote>
-				// - [this link](https://example.com) instead of <a href="...">
-
-				// For now, just verify we can fetch HTML content
 				if event == "" {
 					results = append(results, testResult{"HTML to Markdown", false, "Event is empty"})
 				} else {
-					// Check if HTML is present (current behavior - no conversion yet)
-					hasHTML := strings.Contains(event, "<strong>") || strings.Contains(event, "<p>") || strings.Contains(event, "<em>")
-					// Check if markdown is present (expected after conversion is implemented)
-					hasMarkdown := strings.Contains(event, "**bold**") || strings.Contains(event, "*italic*")
+					// Convert HTML to markdown using our HTMLToMarkdown function
+					markdown := livejournal.HTMLToMarkdown(event)
+					fmt.Printf("Converted to markdown:\n%s\n", markdown)
 
-					if hasMarkdown && !hasHTML {
-						results = append(results, testResult{"HTML to Markdown", true, "HTML correctly converted to markdown"})
+					// Verify conversion produced expected markdown
+					hasMarkdownBold := strings.Contains(markdown, "**bold**")
+					hasMarkdownItalic := strings.Contains(markdown, "*italic*")
+					hasMarkdownList := strings.Contains(markdown, "- List item")
+					hasMarkdownLink := strings.Contains(markdown, "[this link](https://example.com)")
+					hasMarkdownQuote := strings.Contains(markdown, "> ")
+
+					// Should NOT have HTML tags after conversion
+					hasHTML := strings.Contains(markdown, "<strong>") || strings.Contains(markdown, "<p>") || strings.Contains(markdown, "<em>")
+
+					if hasMarkdownBold && hasMarkdownItalic && !hasHTML {
+						details := fmt.Sprintf("bold=%v, italic=%v, list=%v, link=%v, quote=%v",
+							hasMarkdownBold, hasMarkdownItalic, hasMarkdownList, hasMarkdownLink, hasMarkdownQuote)
+						results = append(results, testResult{"HTML to Markdown", true, "HTML correctly converted: " + details})
 					} else if hasHTML {
-						results = append(results, testResult{"HTML to Markdown", false, "HTML not converted to markdown (feature not implemented yet)"})
+						results = append(results, testResult{"HTML to Markdown", false, "HTML tags still present after conversion"})
 					} else {
-						results = append(results, testResult{"HTML to Markdown", false, fmt.Sprintf("Unexpected content: %s", event[:min(100, len(event))])})
+						results = append(results, testResult{"HTML to Markdown", false, fmt.Sprintf("Missing expected markdown: bold=%v, italic=%v", hasMarkdownBold, hasMarkdownItalic)})
 					}
 				}
 			}

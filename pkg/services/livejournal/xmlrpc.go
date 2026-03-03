@@ -13,14 +13,24 @@ import (
 	"time"
 )
 
-type xmlrpcClient struct {
+type XMLRPCClient struct {
 	endpoint   string
 	httpClient *http.Client
 }
 
-func newXMLRPCClient(host string) *xmlrpcClient {
-	return &xmlrpcClient{
+func newXMLRPCClient(host string) *XMLRPCClient {
+	return &XMLRPCClient{
 		endpoint: host + endpoint,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// NewXMLRPCClientWithEndpoint creates a client with a full endpoint URL (for testing)
+func NewXMLRPCClientWithEndpoint(endpointURL string) *XMLRPCClient {
+	return &XMLRPCClient{
+		endpoint: endpointURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -72,7 +82,7 @@ type xmlrpcMethodResponse struct {
 	} `xml:"fault"`
 }
 
-func (c *xmlrpcClient) call(method string, params map[string]any) (map[string]any, error) {
+func (c *XMLRPCClient) Call(method string, params map[string]any) (map[string]any, error) {
 	reqBody, err := encodeRequest(method, params)
 	if err != nil {
 		return nil, fmt.Errorf("encoding request: %w", err)
@@ -223,8 +233,8 @@ func md5Hash(s string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(s)))
 }
 
-func (c *xmlrpcClient) getChallenge() (string, error) {
-	result, err := c.call("LJ.XMLRPC.getchallenge", map[string]any{})
+func (c *XMLRPCClient) GetChallenge() (string, error) {
+	result, err := c.Call("LJ.XMLRPC.getchallenge", map[string]any{})
 	if err != nil {
 		return "", err
 	}
@@ -237,8 +247,8 @@ func (c *xmlrpcClient) getChallenge() (string, error) {
 	return challenge, nil
 }
 
-func (c *xmlrpcClient) addAuth(params map[string]any, username, password string) (map[string]any, error) {
-	challenge, err := c.getChallenge()
+func (c *XMLRPCClient) AddAuth(params map[string]any, username, password string) (map[string]any, error) {
+	challenge, err := c.GetChallenge()
 	if err != nil {
 		return nil, fmt.Errorf("getting challenge: %w", err)
 	}
