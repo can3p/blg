@@ -153,6 +153,20 @@ For migrating between LJ-like services:
 
 2. **Link resolution timing**: Links to other posts are only resolved if the target post has already been pushed. Push posts in dependency order for correct link resolution.
 
+## Development Commands
+
+Use the Makefile for common development tasks:
+
+```bash
+make test    # Run all tests with race detection and coverage
+make lint    # Run golangci-lint
+make build   # Build all packages
+make check   # Run all checks (build, test, lint)
+make fix     # Run go fix and go mod tidy
+```
+
+CI runs `make fix` first and fails if it produces uncommitted changes.
+
 ## Reference Implementation
 
 See `/Users/dima/code/cl-journal` for Common Lisp implementation:
