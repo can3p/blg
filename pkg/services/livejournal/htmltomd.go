@@ -1,10 +1,15 @@
 package livejournal
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
 )
+
+// Regex to extract username from LJ-style user URLs
+var userLinkRE = regexp.MustCompile(`^https?://([a-z][0-9a-z_]+)\.(?:livejournal\.com|dreamwidth\.org)/?$`)
 
 // HTMLToMarkdown converts HTML content to markdown format.
 // This is used when fetching posts from LiveJournal that were created
@@ -98,6 +103,18 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		if text == "" {
 			text = href
 		}
+
+		// Check if this is a user link (e.g., https://username.livejournal.com/)
+		if match := userLinkRE.FindStringSubmatch(href); match != nil {
+			username := match[1]
+			// If link text is @username, just output @username
+			if text == "@"+username {
+				sb.WriteString("@")
+				sb.WriteString(username)
+				return
+			}
+		}
+
 		sb.WriteString("[")
 		sb.WriteString(text)
 		sb.WriteString("](")
@@ -210,23 +227,29 @@ func convertElement(sb *strings.Builder, n *html.Node) {
 		}
 
 	case "lj-embed":
-		// Handle LJ-specific embeds (YouTube, Vimeo)
+		// Handle LJ-specific embeds (YouTube, Vimeo) - convert back to URLs
 		source := getAttr(n, "source")
 		vid := getAttr(n, "vid")
 		switch source {
 		case "youtube":
-			sb.WriteString(`<iframe width="560" height="315" src="https://www.youtube.com/embed/`)
-			sb.WriteString(vid)
-			sb.WriteString(`" frameborder="0" allowfullscreen></iframe>`)
+			// Convert back to YouTube URL
+			sb.WriteString(fmt.Sprintf("https://www.youtube.com/watch?v=%s", vid))
 		case "vimeo":
-			sb.WriteString(`<iframe src="https://player.vimeo.com/video/`)
-			sb.WriteString(vid)
-			sb.WriteString(`" width="640" height="360" frameborder="0" allowfullscreen></iframe>`)
+			// Convert back to Vimeo URL
+			sb.WriteString(fmt.Sprintf("https://vimeo.com/%s", vid))
 		default:
 			// Unknown embed, keep as-is
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
 				convertNode(sb, c)
 			}
+		}
+
+	case "lj":
+		// Handle <lj user="username"> tag - convert to @username
+		user := getAttr(n, "user")
+		if user != "" {
+			sb.WriteString("@")
+			sb.WriteString(user)
 		}
 
 	default:

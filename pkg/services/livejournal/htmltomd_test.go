@@ -231,24 +231,114 @@ func TestHTMLToMarkdown_LJEmbed(t *testing.T) {
 	tests := []struct {
 		name     string
 		html     string
-		contains string
+		expected string
 	}{
 		{
-			name:     "youtube embed",
+			name:     "youtube embed to URL",
 			html:     `<lj-embed source="youtube" vid="dQw4w9WgXcQ"></lj-embed>`,
-			contains: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+			expected: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 		},
 		{
-			name:     "vimeo embed",
+			name:     "vimeo embed to URL",
 			html:     `<lj-embed source="vimeo" vid="123456"></lj-embed>`,
-			contains: "https://player.vimeo.com/video/123456",
+			expected: "https://vimeo.com/123456",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := HTMLToMarkdown(tt.html)
-			assert.Contains(t, result, tt.contains)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestHTMLToMarkdown_UserLink(t *testing.T) {
+	tests := []struct {
+		name     string
+		html     string
+		expected string
+	}{
+		{
+			name:     "livejournal user link",
+			html:     `<a href="https://john_doe.livejournal.com/">@john_doe</a>`,
+			expected: "@john_doe",
+		},
+		{
+			name:     "dreamwidth user link",
+			html:     `<a href="https://alice.dreamwidth.org/">@alice</a>`,
+			expected: "@alice",
+		},
+		{
+			name:     "lj user tag",
+			html:     `<lj user="bob">`,
+			expected: "@bob",
+		},
+		{
+			name:     "user link with different text preserved",
+			html:     `<a href="https://john_doe.livejournal.com/">John's Journal</a>`,
+			expected: "[John's Journal](https://john_doe.livejournal.com/)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HTMLToMarkdown(tt.html)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHTMLToMarkdown_RoundTripYouTube(t *testing.T) {
+	// Test that YouTube URL -> HTML embed -> YouTube URL works
+	config := ServiceConfig{ServiceHost: "livejournal.com"}
+
+	// Start with a YouTube URL
+	originalMD := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+	// Convert to HTML (which creates lj-embed)
+	html := MarkdownToHTML(originalMD, config)
+	assert.Contains(t, html, `<lj-embed source="youtube" vid="dQw4w9WgXcQ">`)
+
+	// Convert back to markdown
+	resultMD := HTMLToMarkdown(html)
+	assert.Equal(t, originalMD, resultMD)
+}
+
+func TestHTMLToMarkdown_RoundTripUserHandle(t *testing.T) {
+	// Test that @username -> HTML link -> @username works
+	config := ServiceConfig{ServiceHost: "livejournal.com"}
+
+	// Start with a user handle
+	originalMD := "Hello @john_doe"
+
+	// Convert to HTML
+	html := MarkdownToHTML(originalMD, config)
+	assert.Contains(t, html, `<a href="https://john_doe.livejournal.com/">@john_doe</a>`)
+
+	// Convert back to markdown
+	resultMD := HTMLToMarkdown(html)
+	assert.Contains(t, resultMD, "@john_doe")
+}
+
+func TestHTMLToMarkdown_RoundTripComplex(t *testing.T) {
+	// Test a complex document with multiple features
+	config := ServiceConfig{ServiceHost: "livejournal.com"}
+
+	originalMD := `Hey @alice, check out this video:
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+What do you think?`
+
+	// Convert to HTML
+	html := MarkdownToHTML(originalMD, config)
+
+	// Convert back to markdown
+	resultMD := HTMLToMarkdown(html)
+
+	// Should preserve the key elements
+	assert.Contains(t, resultMD, "@alice")
+	assert.Contains(t, resultMD, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+	assert.Contains(t, resultMD, "What do you think?")
 }
