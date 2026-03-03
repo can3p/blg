@@ -74,6 +74,53 @@ See my [previous post](2024-01-15-other-post.md) for details.
 
 When pushing, these are resolved to actual remote URLs.
 
+### YouTube Embeds (LiveJournal/Dreamwidth)
+
+YouTube videos can be embedded by simply including the URL:
+
+**Standalone embed** - URL on its own line becomes an embed:
+```markdown
+Check out this video:
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+What do you think?
+```
+
+**Inline with text** - URL in text gets an embed appended after the paragraph:
+```markdown
+I found this great video https://www.youtube.com/watch?v=dQw4w9WgXcQ today!
+```
+
+Supported URL formats:
+- `https://www.youtube.com/watch?v=VIDEO_ID`
+- `https://youtu.be/VIDEO_ID`
+- `https://www.youtube.com/embed/VIDEO_ID`
+
+When pushing, YouTube URLs are converted to `<lj-embed>` tags. When fetching, embeds are converted back to URLs.
+
+### User References (LiveJournal/Dreamwidth)
+
+Reference other users with `@username`:
+
+```markdown
+Hey @alice, what do you think about this?
+
+I was chatting with @bob_smith yesterday.
+```
+
+When pushing:
+- For LiveJournal: `@username` → `<a href="https://username.livejournal.com/">@username</a>`
+- For Dreamwidth: `@username` → `<a href="https://username.dreamwidth.org/">@username</a>`
+
+When fetching, user links are converted back to `@username` format.
+
+**Username rules:**
+- Must start with a letter
+- Can contain lowercase letters, numbers, and underscores
+- Minimum 3 characters
+- Email addresses (user@domain.com) are NOT matched
+
 ### Images
 
 Images are referenced by local path:
