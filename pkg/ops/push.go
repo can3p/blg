@@ -121,6 +121,35 @@ func preCreateUpdate(root string, config *types.Config, service types.Service, f
 		return nil, err
 	}
 
+	// Handle link resolution for local .md files
+	links, err := prepared.Body.ExtractLinks()
+	if err != nil {
+		return nil, err
+	}
+
+	linkReplaceMap := map[string]string{}
+	for _, linkFname := range links {
+		// Find the remote URL for this local file
+		if postMeta, ok := lo.Find(config.Stored.RemotePosts, func(p *types.PostMeta) bool {
+			return p.FileName == linkFname
+		}); ok {
+			// Get the service to construct the URL
+			sdef, ok := types.DefaultServiceRepo.Get(config.Stored.ServiceName)
+			if ok {
+				svc, err := sdef.GetService(config)
+				if err == nil {
+					linkReplaceMap[linkFname] = svc.PostURL(postMeta.RemoteID)
+				}
+			}
+		}
+	}
+
+	if len(linkReplaceMap) > 0 {
+		if err := prepared.Body.ReplaceLinks(linkReplaceMap); err != nil {
+			return nil, err
+		}
+	}
+
 	return prepared, nil
 }
 

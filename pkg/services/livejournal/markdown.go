@@ -1,4 +1,4 @@
-package pcom
+package livejournal
 
 import (
 	"bytes"
@@ -47,17 +47,13 @@ func (p *mdParser) MaybeString() (string, error) {
 func (p *mdParser) ExtractImages() ([]string, error) {
 	out := []string{}
 
-	// Walk the AST in depth-first fashion and apply transformations
 	err := ast.Walk(p.parsed, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		// Each node will be visited twice, once when it is first encountered (entering), and again
-		// after all the node's children have been visited (if any). Skip the latter.
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 
 		if node.Kind() == ast.KindImage {
 			imgNode := node.(*ast.Image)
-
 			out = append(out, string(imgNode.Destination))
 		}
 
@@ -69,29 +65,6 @@ func (p *mdParser) ExtractImages() ([]string, error) {
 	}
 
 	return out, nil
-}
-
-func (p *mdParser) ReplaceImages(m map[string]string) error {
-	// Walk the AST in depth-first fashion and apply transformations
-	return ast.Walk(p.parsed, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		// Each node will be visited twice, once when it is first encountered (entering), and again
-		// after all the node's children have been visited (if any). Skip the latter.
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-
-		if node.Kind() == ast.KindImage {
-			imgNode := node.(*ast.Image)
-
-			newValue, shouldReplace := m[string(imgNode.Destination)]
-
-			if shouldReplace {
-				imgNode.Destination = []byte(newValue)
-			}
-		}
-
-		return ast.WalkContinue, nil
-	})
 }
 
 func (p *mdParser) ExtractLinks() ([]string, error) {
@@ -119,6 +92,26 @@ func (p *mdParser) ExtractLinks() ([]string, error) {
 	}
 
 	return out, nil
+}
+
+func (p *mdParser) ReplaceImages(m map[string]string) error {
+	return ast.Walk(p.parsed, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if node.Kind() == ast.KindImage {
+			imgNode := node.(*ast.Image)
+
+			newValue, shouldReplace := m[string(imgNode.Destination)]
+
+			if shouldReplace {
+				imgNode.Destination = []byte(newValue)
+			}
+		}
+
+		return ast.WalkContinue, nil
+	})
 }
 
 func (p *mdParser) ReplaceLinks(m map[string]string) error {
