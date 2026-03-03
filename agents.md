@@ -167,6 +167,31 @@ make fix     # Run go fix and go mod tidy
 
 CI runs `make fix` first and fails if it produces uncommitted changes.
 
+## LiveJournal API Validation Script
+
+A validation script exists at `pkg/services/livejournal/validate_client.go` to test the LiveJournal client against the real API. It validates:
+
+1. Basic post creation and retrieval
+2. Markdown content handling (stored as-is)
+3. Post visibility levels (public/private/friends)
+4. Post properties (tags, music, mood, location)
+5. Link handling
+6. Post update and delete
+7. Sync items functionality
+8. Unicode support
+9. HTML content sync
+
+### Running the Validation Script
+
+```bash
+cd pkg/services/livejournal
+LJ_USERNAME=<username> LJ_PASSWORD=<password> go run validate_client.go
+```
+
+The script creates test posts (marked private), validates behavior, and cleans up all created posts on exit.
+
+**Note**: Running too many times in quick succession may trigger LJ's rate limiting (IP ban for exceeding login failure rate). Wait a few minutes if this happens.
+
 ## Reference Implementation
 
 See `/Users/dima/code/cl-journal` for Common Lisp implementation:

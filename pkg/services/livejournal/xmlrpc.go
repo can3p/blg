@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -34,6 +35,9 @@ type xmlrpcValue struct {
 	Struct  *xmlrpcStruct `xml:"struct,omitempty"`
 	Array   *xmlrpcArray  `xml:"array,omitempty"`
 	Base64  *string       `xml:"base64,omitempty"`
+	// RawText captures text content when no type wrapper is present
+	// XML-RPC allows <value>text</value> without <string> wrapper
+	RawText string `xml:",chardata"`
 }
 
 type xmlrpcMember struct {
@@ -206,6 +210,11 @@ func decodeValue(v xmlrpcValue) any {
 		}
 		return arr
 	default:
+		// XML-RPC allows <value>text</value> without type wrapper
+		// In this case, RawText contains the string value
+		if v.RawText != "" {
+			return strings.TrimSpace(v.RawText)
+		}
 		return nil
 	}
 }

@@ -157,3 +157,24 @@ func TestEncodeRequest(t *testing.T) {
 	assert.Contains(t, xml, "username")
 	assert.Contains(t, xml, "testuser")
 }
+
+func TestDecodeValue_RawText(t *testing.T) {
+	// XML-RPC allows <value>text</value> without type wrapper
+	v := xmlrpcValue{RawText: "  hello world  "}
+	result := decodeValue(v)
+	assert.Equal(t, "hello world", result)
+}
+
+func TestDecodeValue_RawTextEmpty(t *testing.T) {
+	// Empty RawText should return nil
+	v := xmlrpcValue{RawText: ""}
+	result := decodeValue(v)
+	assert.Nil(t, result)
+}
+
+func TestDecodeValue_RawTextWhitespace(t *testing.T) {
+	// Whitespace-only RawText should return nil after trimming
+	v := xmlrpcValue{RawText: "   "}
+	result := decodeValue(v)
+	assert.Equal(t, "", result)
+}
