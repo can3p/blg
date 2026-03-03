@@ -486,7 +486,7 @@ func TestXMLRPCClient_RateLimiting(t *testing.T) {
 	client.rateLimit = 50 * time.Millisecond // Use short interval for testing
 
 	// Make 3 sequential calls
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := client.Call("test", map[string]any{})
 		require.NoError(t, err)
 	}
@@ -513,7 +513,7 @@ func TestXMLRPCClient_RateLimitingDisabled(t *testing.T) {
 
 	// Make rapid calls - should complete quickly without rate limiting
 	start := time.Now()
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := client.Call("test", map[string]any{})
 		require.NoError(t, err)
 	}

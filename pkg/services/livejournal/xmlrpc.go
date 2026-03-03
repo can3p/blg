@@ -98,7 +98,7 @@ func (c *XMLRPCClient) Call(method string, params map[string]any) (map[string]an
 	var lastErr error
 	maxRetries := 3
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		// Rate limiting: ensure minimum time between requests
 		c.mu.Lock()
 		if c.rateLimit > 0 && !c.lastRequest.IsZero() {
