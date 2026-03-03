@@ -407,8 +407,7 @@ func main() {
 		}
 	}()
 
-	fmt.Println("=== LiveJournal Client Validation ===")
-	fmt.Println()
+	fmt.Println("=== LiveJournal Client Validation ===\n")
 
 	// Test 1: Basic post creation and retrieval
 	fmt.Println("--- Test 1: Basic post creation and retrieval ---")

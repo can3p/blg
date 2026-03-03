@@ -315,6 +315,10 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 	}
 
 	sb.WriteString("\n")
+	// Convert HTML to markdown if the content contains HTML tags
+	if strings.Contains(event, "<") && strings.Contains(event, ">") {
+		event = HTMLToMarkdown(event)
+	}
 	sb.WriteString(event)
 
 	// Generate filename
