@@ -73,13 +73,13 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 		}
 
 		url := fmt.Sprintf("https://test.livejournal.com/%d.html", itemID*256+58)
-		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>url</name><value><string>%s</string></value></member>
 <member><name>anum</name><value><int>58</int></value></member>
 <member><name>ditemid</name><value><int>%d</int></value></member>
-</struct></value></param></params></methodResponse>`, itemID, url, itemID*256+58)))
+</struct></value></param></params></methodResponse>`, itemID, url, itemID*256+58))
 
 	case strings.Contains(bodyStr, "editevent"):
 		// Extract itemid - this could be a ditemid from URL extraction
@@ -100,11 +100,11 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 		if event == "" && subject == "" {
 			// Delete
 			delete(m.posts, realItemID)
-			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+			w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>anum</name><value><int>58</int></value></member>
-</struct></value></param></params></methodResponse>`, realItemID)))
+</struct></value></param></params></methodResponse>`, realItemID))
 		} else {
 			// Update
 			if post, ok := m.posts[realItemID]; ok {
@@ -112,12 +112,12 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 				post["event"] = event
 			}
 			url := fmt.Sprintf("https://test.livejournal.com/%d.html", realItemID*256+58)
-			w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+			w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>itemid</name><value><int>%d</int></value></member>
 <member><name>url</name><value><string>%s</string></value></member>
 <member><name>anum</name><value><int>58</int></value></member>
-</struct></value></param></params></methodResponse>`, realItemID, url)))
+</struct></value></param></params></methodResponse>`, realItemID, url))
 		}
 
 	case strings.Contains(bodyStr, "syncitems"):
@@ -134,12 +134,12 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 </struct></value>`, id))
 		}
 
-		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>syncitems</name><value><array><data>%s</data></array></value></member>
 <member><name>count</name><value><int>%d</int></value></member>
 <member><name>total</name><value><int>%d</int></value></member>
-</struct></value></param></params></methodResponse>`, items.String(), len(m.posts), len(m.posts))))
+</struct></value></param></params></methodResponse>`, items.String(), len(m.posts), len(m.posts)))
 
 	case strings.Contains(bodyStr, "getevents"):
 		// Return requested posts
@@ -162,11 +162,11 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 </struct></value>`, id, subject, event, security, id*256+58))
 		}
 
-		w.Write([]byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+		w.Write(fmt.Appendf(nil, `<?xml version="1.0" encoding="UTF-8"?>
 <methodResponse><params><param><value><struct>
 <member><name>events</name><value><array><data>%s</data></array></value></member>
 <member><name>lastsync</name><value><string>2026-03-03 00:19:13</string></value></member>
-</struct></value></param></params></methodResponse>`, events.String())))
+</struct></value></param></params></methodResponse>`, events.String()))
 
 	default:
 		w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
@@ -181,13 +181,13 @@ func (m *fullMockLJServer) handleRequest(w http.ResponseWriter, r *http.Request)
 func extractXMLValue(xml, name string) string {
 	// Look for <name>NAME</name>\n...<value>\n<string>VALUE</string>
 	nameTag := "<name>" + name + "</name>"
-	idx := strings.Index(xml, nameTag)
-	if idx == -1 {
+	_, after, ok := strings.Cut(xml, nameTag)
+	if !ok {
 		return ""
 	}
 
 	// Find the value after this name
-	rest := xml[idx+len(nameTag):]
+	rest := after
 
 	// Look for <string> or <int>
 	stringStart := strings.Index(rest, "<string>")
