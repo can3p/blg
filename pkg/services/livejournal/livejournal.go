@@ -323,7 +323,9 @@ func (c *client) FormatRemotePost(remote *types.RemotePost) (string, []byte, err
 	sb.WriteString("\n")
 	// Convert HTML to markdown if the content contains HTML tags
 	if strings.Contains(event, "<") && strings.Contains(event, ">") {
-		event = HTMLToMarkdown(event)
+		// Build link resolver from existing remote posts
+		resolver := c.buildLinkResolver()
+		event = HTMLToMarkdownWithLinkResolver(event, resolver)
 	}
 	sb.WriteString(event)
 
@@ -527,6 +529,20 @@ func (c *client) PostURL(remoteID string) string {
 	}
 	// Otherwise construct URL from itemid
 	return fmt.Sprintf("https://%s.%s/%s.html", c.username, strings.TrimPrefix(c.cfg.Host, "https://"), remoteID)
+}
+
+// buildLinkResolver creates a LinkResolver from the current config's remote posts.
+// This is used during FormatRemotePost to convert remote URLs back to local filenames.
+func (c *client) buildLinkResolver() LinkResolver {
+	mappings := make([]PostURLMapping, 0, len(c.cfg.Stored.RemotePosts))
+	for _, post := range c.cfg.Stored.RemotePosts {
+		url := c.PostURL(post.RemoteID)
+		mappings = append(mappings, PostURLMapping{
+			URL:      url,
+			Filename: post.FileName,
+		})
+	}
+	return BuildLinkResolver(mappings)
 }
 
 func createClient(cfg types.Config) (types.Service, error) {

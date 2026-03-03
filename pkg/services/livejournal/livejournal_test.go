@@ -235,3 +235,59 @@ func TestFormatRemotePost(t *testing.T) {
 	assert.Contains(t, contentStr, "music: Some Song")
 	assert.Contains(t, contentStr, "Post body content")
 }
+
+func TestFormatRemotePost_WithLinkResolution(t *testing.T) {
+	c := &client{
+		username: "testuser",
+		cfg: types.Config{
+			Host: "www.livejournal.com",
+			Stored: types.StoredConfig{
+				Login: "testuser",
+				RemotePosts: []*types.PostMeta{
+					{
+						FileName: "2024-01-01-first-post.md",
+						RemoteID: "https://testuser.livejournal.com/11111.html",
+					},
+					{
+						FileName: "2024-01-02-second-post.md",
+						RemoteID: "https://testuser.livejournal.com/22222.html",
+					},
+				},
+			},
+		},
+	}
+
+	// HTML content with links to other posts
+	htmlEvent := `<p>Check out my <a href="https://testuser.livejournal.com/11111.html">first post</a> and <a href="https://testuser.livejournal.com/22222.html">second post</a>.</p><p>Also see <a href="https://example.com">external link</a>.</p>`
+
+	remote := &types.RemotePost{
+		ID:        "33333",
+		UpdatedAt: 1704153600, // 2024-01-02 00:00:00 UTC
+		Data: map[string]any{
+			"subject":   "Post with Links",
+			"event":     htmlEvent,
+			"security":  "public",
+			"eventtime": "2024-01-02 12:00:00",
+		},
+	}
+
+	fname, content, err := c.FormatRemotePost(remote)
+	require.NoError(t, err)
+
+	assert.Contains(t, fname, "2024-01-02")
+	assert.Contains(t, fname, ".md")
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "title: Post with Links")
+
+	// Verify that internal links are resolved to local filenames
+	assert.Contains(t, contentStr, "[first post](2024-01-01-first-post.md)")
+	assert.Contains(t, contentStr, "[second post](2024-01-02-second-post.md)")
+
+	// Verify that external links are preserved
+	assert.Contains(t, contentStr, "[external link](https://example.com)")
+
+	// Verify that remote URLs are NOT present in the output
+	assert.NotContains(t, contentStr, "https://testuser.livejournal.com/11111.html")
+	assert.NotContains(t, contentStr, "https://testuser.livejournal.com/22222.html")
+}

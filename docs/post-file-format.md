@@ -8,7 +8,7 @@ Posts are markdown files with YAML-like headers at the top:
 
 ```markdown
 title: Post Title
-privacy: public
+visibility: public
 tags: tag1, tag2
 
 Post body in markdown...
