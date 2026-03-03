@@ -16,6 +16,9 @@ Supported features:
 - Remote changes are merged into existing posts, including remote images
 - During post download all the image paths are changed to the local one
   to allow to comfortably edit files locally
+- **Link resolution**: Posts can reference each other using local filenames (e.g., `[see this](other-post.md)`).
+  When pushing, these are converted to remote URLs. When fetching/syncing, remote URLs are
+  converted back to local filenames, enabling seamless cross-post linking
 
 Here is a demo!
 

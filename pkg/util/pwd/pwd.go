@@ -44,6 +44,7 @@ func GetAndSetPassword(login, url string) (string, error) {
 	return password, nil
 }
 
+//nolint:unused
 func readPassword() (string, error) {
 	fmt.Printf("Your password/auth key: ")
 

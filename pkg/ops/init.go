@@ -56,7 +56,7 @@ func getLogin() string {
 	var login string
 
 	// Taking input from user
-	fmt.Scanln(&login)
+	_, _ = fmt.Scanln(&login)
 
 	return strings.TrimSpace(login)
 }

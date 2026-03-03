@@ -2,3 +2,4 @@
 dist/
 blg
 test
+coverage.out
